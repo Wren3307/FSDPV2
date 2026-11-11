@@ -1,0 +1,38 @@
+{
+  "founder": {
+    "name": "Philip Lee Shihan",
+    "nameZh": "师范李馥全",
+    "rank": "7th Dan",
+    "role": "Founder and Chief Instructor",
+    "photo": "/images/instructors/philip-lee.png",
+    "quote": "In life, the key is to be yourself. Train diligently, have confidence in your ability and always respect your opponents.",
+    "bio": "Born in Singapore in 1954, Philip Lee Shihan is referred to as one of the five founding fathers of aikido in Singapore. He gave up his interior and construction business in 2003 to promote aikido full time."
+  },
+  "seniors": [
+    { "name": "Chew Eng Lam Sensei", "rank": "6th Dan", "photo": "/images/instructors/chew-eng-lam.jpg" },
+    { "name": "James Moy Sensei", "rank": "6th Dan", "photo": "/images/instructors/james-moy.jpg" },
+    { "name": "Allan Lai Sensei", "rank": "6th Dan", "photo": "/images/instructors/allan-lai.jpg" },
+    { "name": "Bob Tan Sensei", "rank": "6th Dan", "photo": "/images/instructors/bob-tan.jpg" },
+    { "name": "Quah Yong Lok Sensei", "rank": "6th Dan", "photo": "/images/instructors/quah-yong-lok.jpg" },
+    { "name": "Annie Goh Sensei", "rank": "6th Dan", "photo": "/images/instructors/annie-goh.jpg" },
+    { "name": "Tan Kok Hiang Sensei", "rank": "6th Dan", "photo": "/images/instructors/tan-kok-hiang.jpg" }
+  ],
+  "roster": [
+    {
+      "rank": "5th Dan",
+      "names": ["Ronald Tan Sensei", "Lim Cheen Cheen Sensei", "Aloyseus Lee Sensei", "Alexander Lee Sensei", "Tham Wai Yip Sensei", "Steven Goh Sensei", "James Tan Sensei", "Tey Guan Kiat Sensei", "Billy Lim Sensei", "Pang Kim Lock Sensei", "Robin Tan Sensei"]
+    },
+    {
+      "rank": "4th Dan",
+      "names": ["Chuan Huey Ferg Sensei", "Lynn Tan Sensei", "Chan Wai Soen Sensei", "Alan Lim Sensei", "Mark Lim Sensei", "Sean Tan Sensei", "Alvin Teo Sensei", "Elaine Ong Sensei", "Robert Choo Sensei", "Lai Mun Kit Sensei", "Alex Tan Sensei", "Alister Fong Sensei", "Clement Ang Sensei"]
+    },
+    {
+      "rank": "3rd Dan",
+      "names": ["Gavin Poh", "Cheong Mun Hong", "Ng Ngee Boon", "Louwena Lau", "Patrick Lim", "Junex Calderon", "Lisa Teo", "Shibata Yukiyasu", "Nicholas Lee", "Dennis Tan", "Charles Leong"]
+    },
+    {
+      "rank": "Assistant instructors, 2nd Dan",
+      "names": ["Gregorio Jury", "Winnie Lim", "Crix Lee", "Yoong Yong Jian", "Eric Ng", "Toh Boon Yi"]
+    }
+  ]
+}

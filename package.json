@@ -1,0 +1,30 @@
+{
+  "name": "aikido-shinju-kai",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Website and enquiry backend for Aikido Shinju-Kai, Singapore",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "node --disable-warning=ExperimentalWarning server/index.js",
+    "build": "vite build",
+    "start": "cross-env NODE_ENV=production node --disable-warning=ExperimentalWarning server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test server/app.test.js"
+  },
+  "dependencies": {
+    "@fontsource-variable/big-shoulders-display": "^5.3.0",
+    "@fontsource-variable/hanken-grotesk": "^5.3.0",
+    "cross-env": "^10.1.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "helmet": "^8.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.2.1",
+    "vite": "^8.3.6"
+  }
+}

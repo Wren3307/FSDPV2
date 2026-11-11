@@ -1,0 +1,62 @@
+{
+  "adults": {
+    "weekdays": {
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "rows": [
+        { "time": "07:15", "classes": [["Aloyseus Lee", "Adults"], ["Philip Lee", "Adults"], null, ["Alexander Lee", "Adults"], null] },
+        { "time": "10:00", "classes": [null, null, ["Elaine Ong", "Adults"], null, null] },
+        { "time": "11:00", "classes": [null, null, ["Elaine Ong", "Adults"], ["Alexander Lee", "Adults"], ["Tan Kok Hiang", "Adults"]] },
+        { "time": "12:15", "classes": [null, null, ["Nicholas Lee", "Adults"], ["Nicholas Lee", "Adults"], ["Nicholas Lee", "Adults"]] },
+        { "time": "15:00", "classes": [["Nicholas Lee", "Adults"], null, null, null, null] },
+        { "time": "18:00", "classes": [["Mark Lim", "Adults"], ["Robin Tan", "Adults"], ["Robin Tan", "Adults"], ["Nicholas Lee", "Adults"], ["Elaine Ong", "Adults"]] },
+        { "time": "19:15", "classes": [["Mark Lim", "Adults"], ["James Tan", "Adults"], ["Aloyseus Lee", "Adults"], ["Philip Lee", "Adults"], ["Elaine Ong", "Adults"]] },
+        { "time": "20:30", "classes": [["Alexander Lee", "Adults"], ["Robin Tan", "Weapons"], ["Philip Lee", "Advanced"], ["Bob Tan", "Intermediate"], ["Robin Tan", "Adults"]] }
+      ]
+    },
+    "weekend": {
+      "days": ["Saturday", "Sunday"],
+      "rows": [
+        { "time": "08:00", "classes": [["Philip Lee", "Adults"], ["", "Instructional (appointment holders, first week of each month)"]] },
+        { "time": "09:15", "classes": [["Mark Lim, Robin Tan", "Adults"], ["Philip Lee", "Adults, SG50"]] },
+        { "time": "10:30", "classes": [null, ["Ronald Tan", "Adults"]] },
+        { "time": "11:45", "classes": [["Alexander Lee", "Adults"], ["Alexander Lee", "Adults"]] },
+        { "time": "13:00", "classes": [["Robin Tan", "Adults"], ["Mark Lim", "Adults"]] },
+        { "time": "14:15", "classes": [["Bob Tan", "Adults"], ["Mark Lim", "Adults"]] },
+        { "time": "15:30", "classes": [["Mun Kit", "Mixed/family"], ["Robin Tan", "Mixed/family"]] },
+        { "time": "16:45", "classes": [["Annie Goh", "Mixed/family"], ["Robin Tan", "Ladies"]] },
+        { "time": "18:00", "classes": [["Robin Tan", "Adults"], null] }
+      ]
+    }
+  },
+  "children": {
+    "weekdays": {
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "rows": [
+        { "time": "16:00", "classes": [null, null, ["Robin Tan", "Beginners"], ["Nicholas Lee", "Beginners"], ["Robin Tan", "Beginners"]] },
+        { "time": "17:00", "classes": [["Nicholas Lee", "Juniors"], ["Robin Tan", "Beginners"], ["Robin Tan", "Beginners"], ["Nicholas Lee", "Beginners"], ["Robin Tan", "Beginners"]] },
+        { "time": "18:00", "classes": [null, ["Robin Tan", "Beginners"], null, null, ["Nicholas Lee", "Beginners"]] }
+      ]
+    },
+    "weekend": {
+      "days": ["Saturday", "Sunday"],
+      "rows": [
+        { "time": "09:15", "classes": [["Robin Tan", "Beginners"], ["Nicholas Lee", "Beginners"]] },
+        { "time": "10:30", "classes": [["Robin Tan", "Beginners"], ["Nicholas Lee", "Beginners"]] },
+        { "time": "11:45", "classes": [["Nicholas Lee", "Beginners"], ["Nicholas Lee", "Beginners"]] },
+        { "time": "14:15", "classes": [["Nicholas Lee", "Beginners"], ["Annie Goh", "Beginners"]] },
+        { "time": "15:30", "classes": [["Nicholas Lee", "Beginners"], ["Nicholas Lee", "Beginners"]] },
+        { "time": "16:45", "classes": [["Annie Goh", "Mixed/family"], ["Robin Tan", "Beginners"]] }
+      ]
+    }
+  },
+  "legend": [
+    { "name": "Children beginners", "detail": "7th Kyu and above, ages 4 to 12" },
+    { "name": "Children juniors", "detail": "All grades, ages 4 to 6" },
+    { "name": "Adults", "detail": "13 years and above" },
+    { "name": "Mixed/family", "detail": "All adults and children" },
+    { "name": "Intermediate", "detail": "4th Kyu and above" },
+    { "name": "Advanced", "detail": "1st Kyu and above only" },
+    { "name": "SG50", "detail": "Energy, ki and training" },
+    { "name": "Ladies", "detail": "Ladies only" }
+  ]
+}

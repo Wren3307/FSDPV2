@@ -1,0 +1,809 @@
+[
+  {
+    "name": "ASK Headquarters Dojo",
+    "code": "ASK HQ",
+    "region": "central",
+    "address": "Thomson V One, 9 Sin Ming Road, #B1-02, Singapore 575630",
+    "mapUrl": "https://g.co/kgs/nuhTz29",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": true,
+    "slots": []
+  },
+  {
+    "name": "ActiveSG Bedok Dojo",
+    "code": "BDAS",
+    "region": "east",
+    "address": "Heartbeat@Bedok, 11 Bedok North Street 1 #01-02, Singapore 469662",
+    "mapUrl": "https://goo.gl/maps/xKjouijCMZesCBGc7",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "9:00am – 10:00am",
+        "day": "Sun"
+      },
+      {
+        "type": "mixed",
+        "time": "10:15am – 11:15am",
+        "day": "Sun"
+      },
+      {
+        "type": "mixed",
+        "time": "11:30am – 12:30pm",
+        "day": "Sun"
+      }
+    ]
+  },
+  {
+    "name": "Bedok Community Centre Dojo",
+    "code": "BDCC",
+    "region": "east",
+    "address": "Bedok Community Centre, 850 New Upper Changi Rd, Singapore 467352",
+    "mapUrl": "https://goo.gl/maps/HVkq7EGvpEQE3Kq29",
+    "status": "closed",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": []
+  },
+  {
+    "name": "Etonhouse International School Dojo",
+    "code": "EHIS",
+    "region": "east",
+    "address": "51 Broadrick Rd, Singapore 439501",
+    "mapUrl": "https://goo.gl/maps/rE7WqvNV45g4PmDV9",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "3:30pm – 4:30pm",
+        "day": "Wed"
+      }
+    ]
+  },
+  {
+    "name": "Kampong Kembangan Community Club Dojo",
+    "code": "KKCC",
+    "region": "east",
+    "address": "5 Lengkong Tiga, Singapore 417408",
+    "mapUrl": "https://goo.gl/maps/JDyVrTwNaNzz5Hi86",
+    "status": "renovation",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": []
+  },
+  {
+    "name": "MacPherson Community Club",
+    "code": "MCCC",
+    "region": "east",
+    "address": "400 Paya Lebar Way, Singapore 379131",
+    "mapUrl": "https://goo.gl/maps/VmCEzjLAfxwrh4nY7",
+    "status": "closed",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": []
+  },
+  {
+    "name": "Marine Parade Dojo",
+    "code": "MPCC",
+    "region": "east",
+    "address": "278 Marine Parade Rd, Singapore 449282",
+    "mapUrl": "https://goo.gl/maps/rLaeCmBcLFqZuPPTA",
+    "status": "renovation",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": []
+  },
+  {
+    "name": "National Service Resort & Country Club",
+    "code": "NSRCC",
+    "region": "east",
+    "address": "10 Changi Coast Walk, Singapore 499739",
+    "mapUrl": null,
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "3:00pm – 4:15pm",
+        "day": "Sun"
+      }
+    ]
+  },
+  {
+    "name": "Our Tampines Hub",
+    "code": "OTH",
+    "region": "east",
+    "address": "1 Tampines Walk, Singapore 528523",
+    "mapUrl": "https://goo.gl/maps/ScgVwtFMJ3AdnUfm9",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "7:30pm – 8:30pm",
+        "day": "Mon"
+      },
+      {
+        "type": "adult",
+        "time": "8:30pm – 9:30pm",
+        "day": "Mon"
+      }
+    ]
+  },
+  {
+    "name": "Paya Lebar Kovan Dojo",
+    "code": "PLKC",
+    "region": "east",
+    "address": "207 Hougang Street 21, Singapore 530207",
+    "mapUrl": "https://goo.gl/maps/M9Vgvk31DJwfqSmn7",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "8:00pm – 9:00pm",
+        "day": "Thu"
+      },
+      {
+        "type": "adult",
+        "time": "8:00pm – 9:15pm",
+        "day": "Thu"
+      }
+    ]
+  },
+  {
+    "name": "Rivervale Dojo",
+    "code": "RVAF",
+    "region": "east",
+    "address": "Rivervale Mall, 11 Rivervale Cres, Singapore 545082",
+    "mapUrl": "https://goo.gl/maps/CkPSsbQ3fuKCw8KE6",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "adult",
+        "time": "8:00pm – 9:00pm",
+        "day": "Wed"
+      }
+    ]
+  },
+  {
+    "name": "ActiveSG Seng Kang Dojo",
+    "code": "SKAS",
+    "region": "east",
+    "address": "57 Anchorvale Rd, Singapore 544964",
+    "mapUrl": null,
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "1:30pm – 2:30pm",
+        "day": "Sun"
+      },
+      {
+        "type": "mixed",
+        "time": "2:45pm – 3:45pm",
+        "day": "Sun"
+      }
+    ]
+  },
+  {
+    "name": "Siglap South Dojo",
+    "code": "SSCC",
+    "region": "east",
+    "address": "6 Palm Rd, Singapore 456441",
+    "mapUrl": "https://goo.gl/maps/CGq3PJKVPX5inFGH7",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "8:00pm – 9:15pm",
+        "day": "Mon"
+      }
+    ]
+  },
+  {
+    "name": "Tampines West Dojo",
+    "code": "TWCC",
+    "region": "east",
+    "address": "5 Tampines Ave 3, Singapore 529705",
+    "mapUrl": "https://goo.gl/maps/qcffXfbEmvzCPSJZA",
+    "status": "closed",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": []
+  },
+  {
+    "name": "ActiveSG Bishan Dojo",
+    "code": "BSAS",
+    "region": "central",
+    "address": "5 Bishan Street 14, Singapore 579783",
+    "mapUrl": "https://goo.gl/maps/9sLn8DTvrSEvqvpZ6",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "6:00pm – 7:00pm",
+        "day": "Mon"
+      },
+      {
+        "type": "mixed",
+        "time": "7:30pm – 8:30pm",
+        "day": "Thu"
+      }
+    ]
+  },
+  {
+    "name": "Bukit Timah Dojo",
+    "code": "BTCC",
+    "region": "central",
+    "address": "Bukit Timah Community Club, 20 Toh Yi Dr, Singapore 596569",
+    "mapUrl": "https://goo.gl/maps/bSpgwwaowzyZNCKr9",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "4:00pm – 5:15pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "Cheng San Dojo",
+    "code": "CSCC",
+    "region": "central",
+    "address": "6 Ang Mo Kio Street 53, Singapore 569205",
+    "mapUrl": "https://goo.gl/maps/pi866MXwBwkoxQWD9",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "10:00am – 11:00am",
+        "day": "Sat"
+      },
+      {
+        "type": "adult",
+        "time": "10:00am – 11:15am",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "EtonHouse Pre-School Robertson Walk",
+    "code": "EHRW",
+    "region": "central",
+    "address": "11 Unity St, #02-20, Singapore 237995",
+    "mapUrl": "https://goo.gl/maps/qkqtJwotjKpak5JK8",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "3:00pm – 5:00pm",
+        "day": "Mon"
+      }
+    ]
+  },
+  {
+    "name": "Japanese Association Dojo",
+    "code": "JAPA",
+    "region": "central",
+    "address": "120 Adam Rd, Singapore 289899",
+    "mapUrl": "https://goo.gl/maps/cGrAoayyoViKUh4o7",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "12:00pm – 1:30pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "The Singapore Island Country Club Dojo",
+    "code": "SICI",
+    "region": "central",
+    "address": "240 Sime Rd, Singapore 288303",
+    "mapUrl": "https://goo.gl/maps/rfyHchfXo95kxzgVA",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "2:30pm – 3:30pm",
+        "day": "Sun"
+      }
+    ]
+  },
+  {
+    "name": "SMU Dojo",
+    "code": "SMUC",
+    "region": "central",
+    "address": "Singapore Management University, 81 Victoria St, Singapore 188065",
+    "mapUrl": "https://g.page/sgsmu?share",
+    "status": "open",
+    "membersOnly": true,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "adult",
+        "time": "8:30pm – 10:00pm",
+        "day": "Fri"
+      }
+    ]
+  },
+  {
+    "name": "SAFRA Toa Payoh Dojo",
+    "code": "STPY",
+    "region": "central",
+    "address": "293 Lor 6 Toa Payoh, Singapore 319387",
+    "mapUrl": "https://goo.gl/maps/jQVPtVrSh59AzMbNA",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "adult",
+        "time": "8:00pm – 9:00pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "Thomson Dojo",
+    "code": "TSCC",
+    "region": "central",
+    "address": "233 Bishan Street 22, Singapore 570233",
+    "mapUrl": "https://goo.gl/maps/jsz2EiyEJnqWHxKM8",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "7:00pm – 8:15pm",
+        "day": "Tue"
+      }
+    ]
+  },
+  {
+    "name": "ActiveSG Yio Chu Kang Dojo",
+    "code": "YKAS",
+    "region": "central",
+    "address": "200 Ang Mo Kio Ave 9, Singapore 569770",
+    "mapUrl": null,
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "4:00pm – 5:00pm",
+        "day": "Sat"
+      },
+      {
+        "type": "mixed",
+        "time": "5:15pm – 6:15pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "AGORA Colearning",
+    "code": null,
+    "region": "south",
+    "address": "1 Maritime Square, HarbourFront Centre, #04-01, Singapore 099253",
+    "mapUrl": "https://goo.gl/maps/E44aSULDBxxWhwY26",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "4:30pm – 5:30pm",
+        "day": "Tue"
+      },
+      {
+        "type": "children",
+        "time": "3:15pm – 4:15pm",
+        "day": "Fri"
+      }
+    ]
+  },
+  {
+    "name": "EtonHouse International School Sentosa",
+    "code": "EHSC",
+    "region": "south",
+    "address": "33 Allanbrooke Rd, Singapore 099981",
+    "mapUrl": "https://goo.gl/maps/643mcmV9FD6rR7Wx8",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "3:00pm – 4:00pm",
+        "day": "Fri"
+      }
+    ]
+  },
+  {
+    "name": "Tanjong Pagar Dojo",
+    "code": "TGPC",
+    "region": "south",
+    "address": "Tanjong Pagar Community Club, 101 Cantonment Rd, Singapore 089774",
+    "mapUrl": "https://goo.gl/maps/kRSXTibGbSqws7Pd6",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "8:00pm – 9:00pm",
+        "day": "Tue"
+      },
+      {
+        "type": "adult",
+        "time": "8:00pm – 9:15pm",
+        "day": "Tue"
+      }
+    ]
+  },
+  {
+    "name": "Alexandra Retail Centre Dojo",
+    "code": "ARCA",
+    "region": "west",
+    "address": "460 Alexandra Road #03-02, Singapore 119963",
+    "mapUrl": "https://goo.gl/maps/JakVUfi916LW22K19",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "adult",
+        "time": "12:00pm – 1:00pm",
+        "day": "Thu"
+      }
+    ]
+  },
+  {
+    "name": "Civil Service Club (Bukit Batok) Dojo",
+    "code": "CSCB",
+    "region": "west",
+    "address": "91 Bukit Batok West Ave 2, Singapore 659206",
+    "mapUrl": "https://g.page/CSCBukitBatok?share",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "10:00am – 11:00am",
+        "day": "Sun"
+      },
+      {
+        "type": "adult",
+        "time": "11:00am – 12:15pm",
+        "day": "Sun"
+      }
+    ]
+  },
+  {
+    "name": "Gek Poh Dojo",
+    "code": "GPCC",
+    "region": "west",
+    "address": "Gek Poh Ville Community Club, 1 Jurong West Street 74, Singapore 649149",
+    "mapUrl": "https://goo.gl/maps/MG7gZ1wmT5MuoeBr9",
+    "status": "renovation",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": []
+  },
+  {
+    "name": "HomeTeamNS – Bukit Batok Dojo",
+    "code": "HTNS-BB",
+    "region": "west",
+    "address": "HomeTeamNS @ Bukit Batok, Singapore 659003",
+    "mapUrl": null,
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "2:30pm – 3:30pm",
+        "day": "Sat"
+      },
+      {
+        "type": "adult",
+        "time": "2:30pm – 3:45pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "ActiveSG Jurong East",
+    "code": "JEAS",
+    "region": "west",
+    "address": "21 Jurong East Street 31, Singapore 609517",
+    "mapUrl": "https://maps.app.goo.gl/JqLQ8qkyUe6BHNNXA",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "2:45pm – 3:45pm",
+        "day": "Sun"
+      }
+    ]
+  },
+  {
+    "name": "The Frontier Dojo",
+    "code": "TFCC",
+    "region": "west",
+    "address": "665a Jurong West Street 65, Singapore 641665",
+    "mapUrl": "https://goo.gl/maps/VS3BgU1LTpJSUK4Q8",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "7:00pm – 8:00pm",
+        "day": "Fri"
+      },
+      {
+        "type": "adult",
+        "time": "8:00pm – 9:15pm",
+        "day": "Fri"
+      }
+    ]
+  },
+  {
+    "name": "West Coast Dojo",
+    "code": "WCCC",
+    "region": "west",
+    "address": "2 Clementi West Street 2, Singapore 129605",
+    "mapUrl": "https://goo.gl/maps/3SuKAm8g6mkVZRmF6",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "4:00pm – 5:00pm",
+        "day": "Sat"
+      },
+      {
+        "type": "adult",
+        "time": "4:00pm – 5:15pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "Chua Chu Kang Dojo",
+    "code": "CCKC",
+    "region": "north",
+    "address": "35 Teck Whye Ave, Singapore 688892",
+    "mapUrl": "https://goo.gl/maps/s11rvAf6p1Hxdm98A",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "4:30pm – 5:30pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "Chong Pang Dojo",
+    "code": "CPCC",
+    "region": "north",
+    "address": "109 Yishun Ring Rd, Singapore 760109",
+    "mapUrl": null,
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "11:00am – 12:00pm",
+        "day": "Sun"
+      }
+    ]
+  },
+  {
+    "name": "Fu Chun Dojo",
+    "code": "FCCC",
+    "region": "north",
+    "address": "Temporarily at Woodgrove Zone 10 RN, Blk 310 Link Hall",
+    "mapUrl": null,
+    "status": "renovation",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": []
+  },
+  {
+    "name": "HometeamNS Khatib",
+    "code": "HTNS-KT",
+    "region": "north",
+    "address": "2 Yishun Walk, Singapore 767944",
+    "mapUrl": "https://g.page/hometeamns-khatib-clubhouse?share",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "11:00am – 12:00pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "Nanyang Polytechnic Dojo",
+    "code": "NYPA",
+    "region": "north",
+    "address": "180 Ang Mo Kio Ave 8, Singapore 569830",
+    "mapUrl": "https://goo.gl/maps/H1svANoimEuNTcZY7",
+    "status": "open",
+    "membersOnly": true,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "6:00pm – 8:30pm",
+        "day": "Wed"
+      }
+    ]
+  },
+  {
+    "name": "Orchid Country Club Dojo",
+    "code": "OCCA",
+    "region": "north",
+    "address": "1 Orchid Club Rd, Singapore 769162",
+    "mapUrl": "https://goo.gl/maps/18gzkgjmnJhCqJvn8",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "3:00pm – 4:00pm",
+        "day": "Sat"
+      },
+      {
+        "type": "adult",
+        "time": "3:00pm – 4:15pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "Republic Polytechnic",
+    "code": "RPAC",
+    "region": "north",
+    "address": "9 Woodlands Ave 9, Singapore 738964",
+    "mapUrl": "https://goo.gl/maps/pRNngcs1AVPdSpMa8",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "3:00pm – 4:30pm",
+        "day": "Fri"
+      }
+    ]
+  },
+  {
+    "name": "ActiveSG Woodlands Dojo",
+    "code": "WDAS",
+    "region": "north",
+    "address": "2 Woodlands Street 12, Singapore 738599",
+    "mapUrl": "https://goo.gl/maps/gjqFniY2SChX4aUw6",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "9:00am – 10:00am",
+        "day": "Sun"
+      },
+      {
+        "type": "mixed",
+        "time": "10:15am – 11:15am",
+        "day": "Sun"
+      }
+    ]
+  },
+  {
+    "name": "Ci Yuan Dojo",
+    "code": "CYCC",
+    "region": "north-east",
+    "address": "51 Hougang Ave 9, Singapore 538776",
+    "mapUrl": "https://goo.gl/maps/csGsP3k5JEnPV1zF6",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "3:00pm – 4:00pm",
+        "day": "Sat"
+      },
+      {
+        "type": "adult",
+        "time": "3:00pm – 4:15pm",
+        "day": "Sat"
+      }
+    ]
+  },
+  {
+    "name": "Punggol 21 Dojo",
+    "code": "P21C",
+    "region": "north-east",
+    "address": "80 Punggol Field, Singapore 828815",
+    "mapUrl": "https://goo.gl/maps/pnJaojfmE2Y5ftPV7",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "mixed",
+        "time": "7:30pm – 8:30pm",
+        "day": "Mon"
+      }
+    ]
+  },
+  {
+    "name": "Senja-Cashew Community Club Dojo",
+    "code": "SJCC",
+    "region": "north-west",
+    "address": "101 Bukit Panjang Rd, Singapore 679910",
+    "mapUrl": "https://goo.gl/maps/R4CJHDpdE56RpL5Q9",
+    "status": "open",
+    "membersOnly": false,
+    "isHq": false,
+    "slots": [
+      {
+        "type": "children",
+        "time": "8:00pm – 9:00pm",
+        "day": "Thu"
+      },
+      {
+        "type": "adult",
+        "time": "8:00pm – 9:15pm",
+        "day": "Thu"
+      }
+    ]
+  }
+]

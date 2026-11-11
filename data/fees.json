@@ -1,0 +1,32 @@
+{
+  "signUp": [
+    { "name": "One-time registration", "price": "$60", "detail": "Includes current-year membership, membership book and student handbook" },
+    { "name": "Annual membership", "price": "$48", "detail": "" },
+    { "name": "Reactivation", "price": "$60 + current year's fee", "detail": "For members away more than 2 calendar years" }
+  ],
+  "tryIt": [
+    { "name": "Trial session", "price": "$29", "detail": "1 class" },
+    { "name": "Single session", "price": "$40", "detail": "1 class" },
+    { "name": "Private class", "price": "From $120", "detail": "Per hour" }
+  ],
+  "adults": [
+    { "name": "10 lessons", "price": "$270", "detail": "$27 per lesson, valid 11 weeks" },
+    { "name": "25 lessons", "price": "$600", "detail": "$24 per lesson, valid 4 months" },
+    { "name": "50 lessons", "price": "$980", "detail": "$19.60 per lesson, valid 6 months" },
+    { "name": "Unlimited pass", "price": "$48 a week", "detail": "3-month minimum, billed $96 every 2 weeks" }
+  ],
+  "children": [
+    { "name": "1-month pass", "price": "$150", "detail": "4 lessons, valid 5 weeks from first session" },
+    { "name": "6-month pass", "price": "$139 a month", "detail": "24 lessons, $834 a semester" },
+    { "name": "50 lessons", "price": "$1,200", "detail": "$24 per lesson, valid 6 months from first session" }
+  ],
+  "discounts": [
+    "40% off for ages 65 and above",
+    "50% off for full-time students aged 17 to 25, and NSFs"
+  ],
+  "notes": [
+    "All fees include GST.",
+    "Training packages apply only at the Shinju-Kai Headquarters. Community dojos collect training fees directly.",
+    "Training fees are non-refundable and non-transferable."
+  ]
+}

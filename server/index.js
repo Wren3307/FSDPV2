@@ -26,7 +26,14 @@ if (await ensureAdmin(db, { email: process.env.ADMIN_EMAIL, password: process.en
 
 const payments = createPayments({ secretKey: process.env.STRIPE_SECRET_KEY, publicUrl });
 if (!payments) console.warn('STRIPE_SECRET_KEY is not set, so member sign-up is switched off.');
-else if (!payments.isTestMode) console.warn('Stripe is using a LIVE key: sign-ups will take real payments.');
+else {
+  if (!payments.isTestMode) console.warn('Stripe is using a LIVE key: sign-ups will take real payments.');
+  // Check the setup now, so problems show when the server starts rather than at someone's first sign-up.
+  payments.registrationPrice().then(
+    (price) => console.log(`Stripe ready: registration is ${price.currency.toUpperCase()} ${(price.unit_amount / 100).toFixed(2)}.`),
+    (err) => console.warn(`Stripe is not ready: ${err.message}`),
+  );
+}
 
 const app = express();
 const httpServer = createHttpServer(app);

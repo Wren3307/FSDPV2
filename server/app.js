@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { checkPassword, createSessions, hashPassword, requireRole } from './auth.js';
+import { MissingPriceError } from './payments.js';
 import {
   RANKS, checkNewPassword, hasErrors, validateEnquiry, validateInstructor, validateProfile, validateSignup,
 } from './validate.js';
@@ -116,7 +117,7 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
       db.setCheckoutSession(id, checkout.id);
       return res.status(201).json({ checkoutUrl: checkout.url });
     } catch (err) {
-      console.error('Stripe checkout failed', err.message);
+      console.error(err instanceof MissingPriceError ? err.message : `Stripe checkout failed: ${err.message}`);
       return res.status(502).json({ error: 'Your account was created, but the payment page could not open. Go to your account to try paying again.', account: true });
     }
   });
@@ -135,7 +136,7 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
       db.setCheckoutSession(req.user.id, checkout.id);
       res.json({ checkoutUrl: checkout.url });
     } catch (err) {
-      console.error('Stripe checkout failed', err.message);
+      console.error(err instanceof MissingPriceError ? err.message : `Stripe checkout failed: ${err.message}`);
       res.status(502).json({ error: 'The payment page could not open. Try again in a moment.' });
     }
   });

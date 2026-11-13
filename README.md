@@ -36,7 +36,15 @@ Choosing the wrong role on the login page is refused. Nothing on the site links 
 
 ### Payments
 
-Sign-up needs `STRIPE_SECRET_KEY` in `.env`. Use a test key (`sk_test_...`) from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys), then pay with the test card `4242 4242 4242 4242`, any future date and any CVC. Without a key, sign-up shows a message asking people to call Headquarters.
+Sign-up needs `STRIPE_SECRET_KEY` in `.env`. Use a test key (`sk_test_...`) from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys). Then create the registration Product and its SGD 60 Price in that Stripe account:
+
+```bash
+npm run stripe:setup
+```
+
+The site finds the Price by its lookup key, `ask_registration_fee`, so you don't copy any IDs. Running the script again changes nothing. To change the fee, edit `AMOUNT_CENTS` in `scripts/stripe-setup.js` and run it again: it makes a new Price and archives the old one. Restart the server afterwards.
+
+Pay with the test card `4242 4242 4242 4242`, any future date and any CVC. Without a key, sign-up shows a message asking people to call Headquarters. No publishable key is needed, because payment happens on Stripe's own Checkout page.
 
 After paying, Stripe sends the member to `/signup/complete`, and the server checks the payment with Stripe before activating the account. Members who close the page early can use "Already paid? Check again" on their account page. An admin can also mark a fee paid in person.
 

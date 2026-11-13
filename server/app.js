@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import { createAttendanceRouter } from './attendance.js';
 import { validateEnquiry } from './validate.js';
 
 const readJson = (name) => JSON.parse(readFileSync(new URL(`../data/${name}.json`, import.meta.url), 'utf8'));
@@ -52,6 +53,9 @@ export function createApi({ db, adminToken, enquiryLimit = 5 }) {
     if (!tokenMatches(given, adminToken)) return res.status(401).json({ error: 'That admin token is not correct.' });
     return res.json({ enquiries: db.listEnquiries() });
   });
+
+  // FP-7: classes, sessions, rosters and attendance (instructors and admins only).
+  api.use(createAttendanceRouter(db.connection));
 
   api.use((_req, res) => res.status(404).json({ error: 'Not found.' }));
 

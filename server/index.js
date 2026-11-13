@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import helmet from 'helmet';
 import { createApi } from './app.js';
-import { openDatabase } from './db.js';
+import { defaultDatabasePath, openDatabase } from './db.js';
+import { seedDatabase } from './seed.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -15,7 +16,13 @@ try {
 
 const isProduction = process.env.NODE_ENV === 'production';
 const port = Number(process.env.PORT ?? 3000);
-const db = openDatabase(process.env.DATABASE_PATH ?? `${root}storage/enquiries.db`);
+const db = openDatabase(defaultDatabasePath());
+
+// A fresh database has no users, so load the demo data. `npm run seed` reloads it any time.
+if (!db.connection.prepare('SELECT 1 FROM users LIMIT 1').get()) {
+  seedDatabase(db.connection);
+  console.log('Empty database: loaded the demo data.');
+}
 
 const app = express();
 const httpServer = createHttpServer(app);

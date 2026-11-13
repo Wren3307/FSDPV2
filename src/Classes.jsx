@@ -156,7 +156,7 @@ function TimetableGrid({ title, grid }) {
   );
 }
 
-function HqTimetable({ data }) {
+export function HqTimetable({ data }) {
   const [group, setGroup] = useState('adults');
   const groups = [['adults', 'Adults'], ['children', 'Children']];
   const legend = data.legend.filter((l) => (group === 'children'

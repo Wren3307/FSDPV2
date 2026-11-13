@@ -3,8 +3,9 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import helmet from 'helmet';
 import { createApi, ensureAdmin } from './app.js';
-import { openDatabase } from './db.js';
+import { defaultDatabasePath, openDatabase } from './db.js';
 import { createPayments } from './payments.js';
+import { DEMO_PASSWORD, seedDatabase } from './seed.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -18,7 +19,20 @@ const isProduction = process.env.NODE_ENV === 'production';
 const port = Number(process.env.PORT ?? 3000);
 const publicUrl = (process.env.PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/$/, '');
 const adminPath = process.env.VITE_ADMIN_PATH;
-const db = openDatabase(process.env.DATABASE_PATH ?? `${root}storage/enquiries.db`);
+const db = openDatabase(defaultDatabasePath());
+
+const schemaProblem = db.schemaProblem();
+if (schemaProblem) {
+  console.error(schemaProblem);
+  process.exit(1);
+}
+
+// A fresh database has no users, so load the demo data. `npm run seed` reloads it any time.
+// Never in production: the demo accounts share a published password.
+if (!isProduction && !db.connection.prepare('SELECT 1 FROM users LIMIT 1').get()) {
+  seedDatabase(db.connection);
+  console.log(`Empty database: loaded the demo data. Demo accounts use the password "${DEMO_PASSWORD}".`);
+}
 
 if (await ensureAdmin(db, { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD })) {
   console.log(`Created the admin account for ${process.env.ADMIN_EMAIL}`);

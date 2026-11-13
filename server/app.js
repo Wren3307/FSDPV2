@@ -1,16 +1,21 @@
 import { readFileSync } from 'node:fs';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import { createAttendanceRouter } from './attendance.js';
 import { checkPassword, createSessions, hashPassword, requireRole } from './auth.js';
+import { createEligibilityRouter } from './eligibilityRoutes.js';
 import { MissingPriceError } from './payments.js';
 import {
-  RANKS, checkNewPassword, hasErrors, validateEnquiry, validateInstructor, validateProfile, validateSignup,
+  checkNewPassword, hasErrors, validateEnquiry, validateInstructor, validateProfile, validateSignup,
 } from './validate.js';
 
 const readJson = (name) => JSON.parse(readFileSync(new URL(`../data/${name}.json`, import.meta.url), 'utf8'));
 
-const ROLE_NAMES = { member: 'member', instructor: 'instructor', admin: 'admin' };
-const STATUSES = ['active', 'disabled', 'pending_payment'];
+// Members are 'student' accounts in the database; the site calls them members.
+const LOGIN_ROLES = ['student', 'instructor', 'admin'];
+const ROLE_WORDS = { student: 'a member', instructor: 'an instructor', admin: 'an admin' };
+const ROLE_CHOICE = { student: 'Member', instructor: 'Instructor' };
+const STATUSES = ['active', 'inactive', 'pending_payment'];
 
 const limit = (windowMinutes, max, error) => rateLimit({
   windowMs: windowMinutes * 60 * 1000,
@@ -24,7 +29,7 @@ const limit = (windowMinutes, max, error) => rateLimit({
  * Builds the JSON API. Kept apart from the HTTP server so tests can run it directly.
  * `payments` is null when Stripe is not configured.
  */
-export function createApi({ db, payments, secureCookies = false, limits = {} }) {
+export function createApi({ db, payments = null, secureCookies = false, limits = {} }) {
   const api = express.Router();
   const sessions = createSessions(db, { secureCookies });
 
@@ -47,6 +52,8 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
   for (const [name, data] of Object.entries(content)) {
     api.get(`/${name}`, (_req, res) => res.json(data));
   }
+  // Every dojo on the public site is also a centre, so accounts, classes and attendance can point at it.
+  db.ensureCentres(content.dojos);
   const dojoNames = new Set(content.dojos.map((d) => d.name));
   const signupDojos = new Set(content.dojos.filter((d) => d.status === 'open' && !d.membersOnly).map((d) => d.name));
 
@@ -60,7 +67,7 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
     return res.status(201).json({ ok: true, id: db.addEnquiry(values) });
   });
 
-  // Accounts -------------------------------------------------------------
+  // Accounts (FP-1) --------------------------------------------------------
 
   const loginLimit = limit(15, limits.login ?? 10, 'Too many login attempts. Wait 15 minutes, then try again.');
   const signupLimit = limit(60, limits.signup ?? 5, 'Too many sign-ups from this connection. Try again in an hour.');
@@ -71,18 +78,16 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
     const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
     const role = req.body?.role;
-    if (!ROLE_NAMES[role]) return res.status(400).json({ error: 'Choose whether you are logging in as a member or an instructor.' });
+    if (!LOGIN_ROLES.includes(role)) return res.status(400).json({ error: 'Choose whether you are logging in as a member or an instructor.' });
 
     const account = email ? db.getAuthByEmail(email) : undefined;
     const valid = await checkPassword(password, account?.password_hash);
     if (!account || !valid) return res.status(401).json({ error: 'That email or password is not correct.' });
-    if (account.status === 'disabled') return res.status(403).json({ error: 'This account is switched off. Contact Headquarters on (+65) 6513 1588.' });
+    if (account.status === 'inactive') return res.status(403).json({ error: 'This account is switched off. Contact Headquarters on (+65) 6513 1588.' });
     if (account.role !== role) {
       if (role === 'admin') return res.status(403).json({ error: 'This is not an admin account.' });
       if (account.role === 'admin') return res.status(403).json({ error: 'Admin accounts log in on the admin page.' });
-      const wanted = role === 'instructor' ? 'an instructor' : 'a member';
-      const actual = account.role === 'instructor' ? 'Instructor' : 'Member';
-      return res.status(403).json({ error: `This account is not ${wanted} account. Choose ${actual} instead.` });
+      return res.status(403).json({ error: `This account is not ${ROLE_WORDS[role]} account. Choose ${ROLE_CHOICE[account.role]} instead.` });
     }
 
     sessions.start(res, account.id);
@@ -101,12 +106,12 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
     if (hasErrors(errors)) return res.status(400).json({ errors });
 
     const id = db.createUser({
-      role: 'member',
+      role: 'student',
       name: values.name,
       email: values.email,
       passwordHash: await hashPassword(values.password),
       phone: values.phone,
-      dojo: values.dojo,
+      centreId: db.centreId(values.dojo),
       status: 'pending_payment',
     });
     if (!id) return res.status(409).json({ errors: { email: 'An account with this email already exists. Log in instead.' } });
@@ -122,7 +127,7 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
     }
   });
 
-  // Payments ---------------------------------------------------------------
+  // Payments (registration fee) --------------------------------------------
 
   const needsPayment = (req, res, next) => {
     if (req.user.status !== 'pending_payment') return res.status(409).json({ error: 'Your registration fee is already paid.' });
@@ -130,7 +135,7 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
     return next();
   };
 
-  api.post('/payments/checkout', requireRole('member'), needsPayment, async (req, res) => {
+  api.post('/payments/checkout', requireRole('student'), needsPayment, async (req, res) => {
     try {
       const checkout = await payments.createCheckout(req.user);
       db.setCheckoutSession(req.user.id, checkout.id);
@@ -141,7 +146,7 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
     }
   });
 
-  api.post('/payments/confirm', requireRole('member'), needsPayment, async (req, res) => {
+  api.post('/payments/confirm', requireRole('student'), needsPayment, async (req, res) => {
     const sessionId = typeof req.body?.sessionId === 'string' && req.body.sessionId
       ? req.body.sessionId
       : db.getCheckoutSession(req.user.id);
@@ -160,15 +165,17 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
 
   // Profile ----------------------------------------------------------------
 
-  api.patch('/me', requireRole('member', 'instructor', 'admin'), (req, res) => {
-    const isMember = req.user.role === 'member';
-    const { errors, values } = validateProfile(req.body, dojoNames, { requireDojo: isMember });
+  api.patch('/me', requireRole(...LOGIN_ROLES), (req, res) => {
+    const isMember = req.user.role === 'student';
+    const { errors, values } = validateProfile(req.body, signupDojos, { requireDojo: isMember });
     if (hasErrors(errors)) return res.status(400).json({ errors });
-    db.updateProfile(req.user.id, { ...values, dojo: isMember ? values.dojo : req.user.dojo });
+    // Only members choose their own dojo; an instructor's centre is set by the admin.
+    const centreId = isMember ? db.centreId(values.dojo) : req.user.centre_id;
+    db.updateProfile(req.user.id, { name: values.name, phone: values.phone, centreId });
     return res.json({ user: db.getUser(req.user.id) });
   });
 
-  api.post('/me/password', requireRole('member', 'instructor', 'admin'), async (req, res) => {
+  api.post('/me/password', requireRole(...LOGIN_ROLES), async (req, res) => {
     const errors = {};
     checkNewPassword(req.body?.newPassword, errors, 'newPassword');
     const ok = await checkPassword(String(req.body?.currentPassword ?? ''), db.getPasswordHash(req.user.id));
@@ -183,8 +190,13 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
   // Instructors ------------------------------------------------------------
 
   api.get('/instructor/members', requireRole('instructor'), (req, res) => {
-    res.json({ dojos: req.user.dojos, members: db.membersForInstructor(req.user.id) });
+    res.json({ dojo: req.user.dojo, members: db.studentsForInstructor(req.user) });
   });
+
+  // FP-7: classes, sessions, rosters and attendance (instructors and admins only).
+  api.use(createAttendanceRouter(db.connection));
+  // FP-10: grading eligibility, worked out from attendance and the grading rules.
+  api.use(createEligibilityRouter(db.connection));
 
   // Admin ------------------------------------------------------------------
 
@@ -192,7 +204,7 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
   admin.use(requireRole('admin'));
 
   admin.get('/enquiries', (_req, res) => res.json({ enquiries: db.listEnquiries() }));
-  admin.get('/users', (_req, res) => res.json({ users: db.listUsers(), ranks: RANKS }));
+  admin.get('/users', (_req, res) => res.json({ users: db.listUsers(), ranks: db.listRanks() }));
 
   admin.post('/instructors', async (req, res) => {
     const { errors, values } = validateInstructor(req.body, dojoNames);
@@ -203,8 +215,8 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
       email: values.email,
       passwordHash: await hashPassword(values.password),
       phone: values.phone,
+      centreId: db.centreId(values.dojo),
       status: 'active',
-      dojos: values.dojos,
     });
     if (!id) return res.status(409).json({ errors: { email: 'An account with this email already exists.' } });
     return res.status(201).json({ user: db.getUser(id) });
@@ -216,19 +228,19 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
     if (!target) return res.status(404).json({ error: 'That account no longer exists.' });
     if (target.role === 'admin') return res.status(403).json({ error: 'Admin accounts cannot be changed here.' });
 
-    const { rank, status, dojos } = req.body ?? {};
-    if (rank !== undefined && !RANKS.includes(rank)) return res.status(400).json({ error: 'Choose a rank from the list.' });
+    const { rank, status, dojo } = req.body ?? {};
+    if (rank !== undefined && (target.role !== 'student' || !db.listRanks().includes(rank))) {
+      return res.status(400).json({ error: 'Choose a rank from the list. Only members have ranks.' });
+    }
     if (status !== undefined && !STATUSES.includes(status)) return res.status(400).json({ error: 'Choose a status from the list.' });
     if (status === 'active' && target.status === 'pending_payment') {
       return res.status(400).json({ error: 'This member has not paid the registration fee. Mark them as paid only after you receive payment at the dojo.' });
     }
-    if (dojos !== undefined && (target.role !== 'instructor' || !Array.isArray(dojos) || dojos.length === 0 || dojos.some((d) => !dojoNames.has(d)))) {
-      return res.status(400).json({ error: 'Choose at least one dojo from the list.' });
-    }
+    if (dojo !== undefined && !dojoNames.has(dojo)) return res.status(400).json({ error: 'Choose a dojo from the list.' });
 
     if (rank !== undefined) db.setRank(id, rank);
     if (status !== undefined) db.setStatus(id, status);
-    if (dojos !== undefined) db.setInstructorDojos(id, [...new Set(dojos)]);
+    if (dojo !== undefined) db.setCentre(id, db.centreId(dojo));
     return res.json({ user: db.getUser(id) });
   });
 
@@ -255,9 +267,9 @@ export function createApi({ db, payments, secureCookies = false, limits = {} }) 
   return api;
 }
 
-/** Creates the first admin from environment settings when the database has none. */
+/** Creates the admin account named in the environment settings, unless that email already has an account. */
 export async function ensureAdmin(db, { email, password, name = 'Site admin' }) {
-  if (!email || !password || db.hasAdmin()) return false;
+  if (!email || !password || db.hasUserWithEmail(email)) return false;
   db.createUser({ role: 'admin', name, email: email.toLowerCase(), passwordHash: await hashPassword(password), status: 'active' });
   return true;
 }

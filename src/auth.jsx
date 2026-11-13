@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
 
 export const useAuth = () => useContext(AuthContext);
 
-export const ROLE_LABEL = { member: 'Member', instructor: 'Instructor', admin: 'Admin' };
-export const STATUS_LABEL = { active: 'Active', pending_payment: 'Waiting for payment', disabled: 'Switched off' };
+export const ROLE_LABEL = { student: 'Member', instructor: 'Instructor', admin: 'Admin' };
+export const STATUS_LABEL = { active: 'Active', pending_payment: 'Waiting for payment', inactive: 'Switched off' };
 
 export const ADMIN_PATH = import.meta.env.VITE_ADMIN_PATH || null;

@@ -1,4 +1,6 @@
-import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+// Login (FP-1): password hashing, session cookies, and the role checks every feature router uses.
+// createApi runs sessions.load on every request, so req.user is the logged-in user or null.
+import { createHash, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scryptAsync = promisify(scrypt);
@@ -6,10 +8,17 @@ const KEY_LENGTH = 64;
 const COOKIE = 'ask_session';
 const SESSION_DAYS = 7;
 
+const formatHash = (salt, key) => `scrypt$${salt.toString('base64')}$${key.toString('base64')}`;
+
 export async function hashPassword(password) {
   const salt = randomBytes(16);
-  const key = await scryptAsync(password, salt, KEY_LENGTH);
-  return `scrypt$${salt.toString('base64')}$${key.toString('base64')}`;
+  return formatHash(salt, await scryptAsync(password, salt, KEY_LENGTH));
+}
+
+/** For the seed script, which runs synchronously. */
+export function hashPasswordSync(password) {
+  const salt = randomBytes(16);
+  return formatHash(salt, scryptSync(password, salt, KEY_LENGTH));
 }
 
 export async function verifyPassword(password, stored) {
@@ -49,20 +58,34 @@ export function createSessions(db, { secureCookies }) {
       if (token) db.deleteSession(hashToken(token));
       res.append('Set-Cookie', `${COOKIE}=; Max-Age=0; ${cookieAttrs}`);
     },
-    /** Middleware: sets req.user to the logged-in user, or null. */
+    /** Middleware: sets req.user to the logged-in user, or null. Switched-off accounts count as logged out. */
     load(req, _res, next) {
       const token = readCookie(req, COOKIE);
       const user = token ? db.userForSession(hashToken(token)) : null;
-      req.user = user && user.status !== 'disabled' ? user : null;
+      req.user = user && user.status !== 'inactive' ? user : null;
       next();
     },
   };
 }
 
+/**
+ * Requires a logged-in user. The feature routers (attendance, eligibility) were written against a
+ * header-based stand-in for login; they still call loadUser(connection), which now just checks the
+ * session that createApi has already loaded.
+ */
+export function loadUser(_connection) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'Log in to continue.' });
+    return next();
+  };
+}
+
+// 401 when logged out, 403 unless the user has one of the given roles. Keeping every role check in
+// this one helper means every feature checks access the same way.
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Log in to continue.' });
-    if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'Your account does not have access to this page.' });
+    if (!roles.includes(req.user.role)) return res.status(403).json({ error: 'You do not have permission to do that.' });
     return next();
   };
 }

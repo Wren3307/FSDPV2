@@ -3,12 +3,6 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+?[\d\s()-]{8,20}$/;
 export const MIN_PASSWORD = 10;
 
-export const RANKS = [
-  'Ungraded',
-  ...['10th', '9th', '8th', '7th', '6th', '5th', '4th', '3rd', '2nd', '1st'].map((n) => `${n} Kyu`),
-  ...['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'].map((n) => `${n} Dan`),
-];
-
 const text = (value) => (typeof value === 'string' ? value.trim() : '');
 
 function checkName(name, errors) {
@@ -91,15 +85,14 @@ export function validateInstructor(body = {}, dojoNames) {
     name: text(body.name),
     email: text(body.email).toLowerCase(),
     phone: text(body.phone),
-    dojos: Array.isArray(body.dojos) ? [...new Set(body.dojos.map(text))] : [],
+    dojo: text(body.dojo),
   };
   const errors = {};
   checkName(values.name, errors);
   checkEmail(values.email, errors);
   checkPhone(values.phone, errors, false);
   checkNewPassword(body.password, errors);
-  if (values.dojos.length === 0) errors.dojos = 'Choose at least one dojo this instructor teaches at.';
-  else if (values.dojos.some((d) => !dojoNames.has(d))) errors.dojos = 'Choose dojos from the list.';
+  if (!dojoNames.has(values.dojo)) errors.dojo = 'Choose the dojo this instructor teaches at.';
   return { errors, values: { ...values, password: body.password } };
 }
 

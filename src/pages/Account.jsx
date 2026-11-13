@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ROLE_LABEL, STATUS_LABEL, api, useAuth } from '../auth.jsx';
 import { HqTimetable } from '../Classes.jsx';
 import { Field, Notice, fieldProps, focusFirstError } from '../forms.jsx';
@@ -55,7 +55,7 @@ function PaymentBanner() {
 
 function ProfileForm({ user, dojoNames }) {
   const { setUser } = useAuth();
-  const isMember = user.role === 'member';
+  const isMember = user.role === 'student';
   const [form, setForm] = useState({ name: user.name, phone: user.phone, dojo: user.dojo });
   const [errors, setErrors] = useState({});
   const [saved, setSaved] = useState('');
@@ -137,9 +137,9 @@ function ProfileTab({ user, dojoNames }) {
         <div><dt>Email</dt><dd>{user.email}</dd></div>
         <div><dt>Account</dt><dd>{ROLE_LABEL[user.role]}</dd></div>
         <div><dt>Rank</dt><dd>{user.rank}</dd></div>
-        {user.role === 'member' && <div><dt>Membership</dt><dd>{STATUS_LABEL[user.status]}</dd></div>}
-        {user.role === 'member' && <div><dt>Principal Dojo</dt><dd>{user.dojo}</dd></div>}
-        {user.role === 'instructor' && <div><dt>Teaches at</dt><dd>{user.dojos.join(', ')}</dd></div>}
+        {user.role === 'student' && <div><dt>Membership</dt><dd>{STATUS_LABEL[user.status]}</dd></div>}
+        {user.role === 'student' && <div><dt>Principal Dojo</dt><dd>{user.dojo}</dd></div>}
+        {user.role === 'instructor' && <div><dt>Teaches at</dt><dd>{user.dojo ?? 'Not set'}</dd></div>}
         <div><dt>{user.paid_at ? 'Member since' : 'Account created'}</dt><dd>{formatDate(user.paid_at ?? user.created_at)}</dd></div>
       </dl>
       <div className="stack">
@@ -181,7 +181,6 @@ function MyClassesTab({ user, dojos }) {
 
 function MyStudentsTab() {
   const [state, setState] = useState({ data: null, error: '' });
-  const [dojo, setDojo] = useState('all');
 
   useEffect(() => {
     api('/instructor/members').then(({ ok, data }) => setState(ok ? { data, error: '' } : { data: null, error: data.error }));
@@ -190,22 +189,17 @@ function MyStudentsTab() {
   if (state.error) return <Notice>{state.error}</Notice>;
   if (!state.data) return <p>Loading your students&hellip;</p>;
 
-  const { dojos, members } = state.data;
-  const shown = dojo === 'all' ? members : members.filter((m) => m.dojo === dojo);
+  const { dojo, members: shown } = state.data;
+  if (!dojo) return <p className="empty">You don&rsquo;t have a dojo yet. Ask the admin to set the dojo you teach at.</p>;
 
   return (
     <>
-      {dojos.length > 1 && (
-        <div className="field field-inline">
-          <label htmlFor="student-dojo">Dojo</label>
-          <select id="student-dojo" value={dojo} onChange={(e) => setDojo(e.target.value)}>
-            <option value="all">All my dojos</option>
-            {dojos.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-      )}
+      <p className="staff-links">
+        <Link className="button button-small" to="/attendance">Mark attendance</Link>
+        <Link className="button button-quiet button-small" to="/eligibility">Grading eligibility</Link>
+      </p>
       <p className="result-count" role="status">
-        {shown.length === 1 ? '1 active member' : `${shown.length} active members`} at {dojo === 'all' ? dojos.join(', ') : dojo}
+        {shown.length === 1 ? '1 active member' : `${shown.length} active members`} at {dojo}
       </p>
       {shown.length === 0 ? (
         <p className="empty">No active members have chosen this dojo as their Principal Dojo yet.</p>
@@ -243,7 +237,7 @@ export default function Account() {
   if (user === undefined) return <PageShell narrow><p>Loading your account&hellip;</p></PageShell>;
   if (!user || user.role === 'admin') return <Navigate to="/login" replace />;
 
-  const roleTab = user.role === 'member' ? ['classes', 'My classes'] : ['students', 'My students'];
+  const roleTab = user.role === 'student' ? ['classes', 'My classes'] : ['students', 'My students'];
   const tabs = [['profile', 'Profile'], roleTab];
   const allDojos = dojos.data ?? [];
   const dojoNames = allDojos.filter((d) => d.status === 'open' && !d.membersOnly).map((d) => d.name).sort((a, b) => a.localeCompare(b));
@@ -254,7 +248,7 @@ export default function Account() {
         <div>
           <h1 className="page-title">Hello, {user.name.split(' ')[0]}</h1>
           <p className="page-lead">
-            {ROLE_LABEL[user.role]} account{user.role === 'member' && user.dojo ? `, training at ${user.dojo}` : ''}
+            {ROLE_LABEL[user.role]} account{user.role === 'student' && user.dojo ? `, training at ${user.dojo}` : ''}
           </p>
         </div>
         <button type="button" className="button button-quiet button-small" onClick={async () => { await logout(); navigate('/'); }}>

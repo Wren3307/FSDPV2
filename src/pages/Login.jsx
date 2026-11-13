@@ -5,13 +5,13 @@ import { Field, Notice } from '../forms.jsx';
 import { PageShell } from '../Layout.jsx';
 
 const ROLES = [
-  ['member', 'Member'],
+  ['student', 'Member'],
   ['instructor', 'Instructor'],
 ];
 
 /** The shared login form. `role` is fixed for the admin page; otherwise visitors switch between roles. */
 export function LoginForm({ fixedRole, onLoggedIn }) {
-  const [role, setRole] = useState(fixedRole ?? 'member');
+  const [role, setRole] = useState(fixedRole ?? 'student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -55,7 +55,7 @@ export function LoginForm({ fixedRole, onLoggedIn }) {
       </Field>
       {error && <Notice>{error}</Notice>}
       <button type="submit" className="button" disabled={busy}>
-        {busy ? 'Logging in' : `Log in${fixedRole ? '' : ` as ${role === 'member' ? 'a member' : 'an instructor'}`}`}
+        {busy ? 'Logging in' : `Log in${fixedRole ? '' : ` as ${role === 'student' ? 'a member' : 'an instructor'}`}`}
       </button>
     </form>
   );

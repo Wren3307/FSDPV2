@@ -43,6 +43,7 @@ const signup = (as, overrides = {}) => as('POST', '/auth/signup', {
 
 before(async () => {
   db = openDatabase(':memory:');
+  db.connection.exec(`INSERT INTO ranks (name, sort_order) VALUES ('6th kyu', 1), ('5th kyu', 2)`);
   await ensureAdmin(db, { email: 'admin@example.com', password: 'admin-password-1' });
   const app = express();
   app.use('/api', createApi({ db, payments: fakePayments, limits: { enquiries: 1000, login: 1000, signup: 1000 } }));
@@ -117,20 +118,20 @@ test('login checks the chosen role', async () => {
   assert.equal(wrong.status, 403);
   assert.match(wrong.body.error, /not an instructor account/);
 
-  const badPassword = await as('POST', '/auth/login', { email: 'mei@example.com', password: 'nope-nope-nope', role: 'member' });
+  const badPassword = await as('POST', '/auth/login', { email: 'mei@example.com', password: 'nope-nope-nope', role: 'student' });
   assert.equal(badPassword.status, 401);
 
-  const ok = await as('POST', '/auth/login', { email: 'MEI@example.com', password: 'correct-horse-1', role: 'member' });
+  const ok = await as('POST', '/auth/login', { email: 'MEI@example.com', password: 'correct-horse-1', role: 'student' });
   assert.equal(ok.status, 200);
-  assert.equal(ok.body.user.role, 'member');
+  assert.equal(ok.body.user.role, 'student');
 
   await as('POST', '/auth/logout', {});
   assert.equal((await as('GET', '/auth/me')).body.user, null);
 });
 
-test('only the admin can create instructors, who then see members at their dojos', async () => {
+test('only the admin can create instructors, who then see members at their dojo', async () => {
   const mei = client();
-  await mei('POST', '/auth/login', { email: 'mei@example.com', password: 'correct-horse-1', role: 'member' });
+  await mei('POST', '/auth/login', { email: 'mei@example.com', password: 'correct-horse-1', role: 'student' });
   assert.equal((await mei('POST', '/admin/instructors', {})).status, 403);
   assert.equal((await mei('GET', '/instructor/members')).status, 403);
 
@@ -138,14 +139,14 @@ test('only the admin can create instructors, who then see members at their dojos
   const login = await admin('POST', '/auth/login', { email: 'admin@example.com', password: 'admin-password-1', role: 'admin' });
   assert.equal(login.status, 200);
   const created = await admin('POST', '/admin/instructors', {
-    name: 'Robin Tan', email: 'robin@example.com', password: 'instructor-pass-1', dojos: [DOJO],
+    name: 'Robin Tan', email: 'robin@example.com', password: 'instructor-pass-1', dojo: DOJO,
   });
   assert.equal(created.status, 201);
 
   const robin = client();
   await robin('POST', '/auth/login', { email: 'robin@example.com', password: 'instructor-pass-1', role: 'instructor' });
   const { body } = await robin('GET', '/instructor/members');
-  assert.deepEqual(body.dojos, [DOJO]);
+  assert.equal(body.dojo, DOJO);
   // Mei has paid; the other sign-up has not, so only Mei is listed.
   assert.deepEqual(body.members.map((m) => m.email), ['mei@example.com']);
 });
@@ -156,14 +157,14 @@ test('admin can change a rank, and switching an account off logs it out', async 
   const { body } = await admin('GET', '/admin/users');
   const mei = body.users.find((u) => u.email === 'mei@example.com');
 
-  assert.equal((await admin('PATCH', `/admin/users/${mei.id}`, { rank: '5th Kyu' })).body.user.rank, '5th Kyu');
+  assert.equal((await admin('PATCH', `/admin/users/${mei.id}`, { rank: '5th kyu' })).body.user.rank, '5th kyu');
   assert.equal((await admin('PATCH', `/admin/users/${mei.id}`, { rank: 'Black belt' })).status, 400);
 
   const meiBrowser = client();
-  await meiBrowser('POST', '/auth/login', { email: 'mei@example.com', password: 'correct-horse-1', role: 'member' });
-  await admin('PATCH', `/admin/users/${mei.id}`, { status: 'disabled' });
+  await meiBrowser('POST', '/auth/login', { email: 'mei@example.com', password: 'correct-horse-1', role: 'student' });
+  await admin('PATCH', `/admin/users/${mei.id}`, { status: 'inactive' });
   assert.equal((await meiBrowser('GET', '/auth/me')).body.user, null);
-  const blocked = await meiBrowser('POST', '/auth/login', { email: 'mei@example.com', password: 'correct-horse-1', role: 'member' });
+  const blocked = await meiBrowser('POST', '/auth/login', { email: 'mei@example.com', password: 'correct-horse-1', role: 'student' });
   assert.equal(blocked.status, 403);
 });
 

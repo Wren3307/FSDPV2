@@ -11,7 +11,8 @@
     "dev": "node --disable-warning=ExperimentalWarning server/index.js",
     "build": "vite build",
     "start": "cross-env NODE_ENV=production node --disable-warning=ExperimentalWarning server/index.js",
-    "test": "node --disable-warning=ExperimentalWarning --test server/app.test.js server/payments.test.js",
+    "test": "node --disable-warning=ExperimentalWarning --test server/app.test.js server/payments.test.js server/attendance.test.js server/eligibility.test.js",
+    "seed": "node --disable-warning=ExperimentalWarning server/seed.js",
     "stripe:setup": "node scripts/stripe-setup.js"
   },
   "dependencies": {

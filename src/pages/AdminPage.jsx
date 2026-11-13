@@ -5,7 +5,7 @@ import { Field, Notice, fieldProps, focusFirstError } from '../forms.jsx';
 import { useApi } from '../useApi.jsx';
 import { LoginForm } from './Login.jsx';
 
-const ROLE_FILTERS = [['all', 'Everyone'], ['member', 'Members'], ['instructor', 'Instructors']];
+const ROLE_FILTERS = [['all', 'Everyone'], ['student', 'Members'], ['instructor', 'Instructors']];
 
 function randomPassword() {
   const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -31,10 +31,12 @@ function PersonRow({ person, ranks, onChanged }) {
         {error && <span className="cell-error" role="alert">{error}</span>}
       </th>
       <td>{ROLE_LABEL[person.role]}</td>
-      <td>{person.role === 'instructor' ? person.dojos.join(', ') : person.dojo}</td>
+      <td>{person.dojo}</td>
       <td>
-        {person.role === 'admin' ? person.rank : (
+        {/* Only members have ranks. Choosing one records a promotion dated today. */}
+        {person.role !== 'student' ? '—' : (
           <select aria-label={`Rank for ${person.name}`} value={person.rank} onChange={(e) => change({ rank: e.target.value })}>
+            {!ranks.includes(person.rank) && <option value={person.rank} disabled>{person.rank}</option>}
             {ranks.map((r) => <option key={r}>{r}</option>)}
           </select>
         )}
@@ -52,7 +54,7 @@ function PersonRow({ person, ranks, onChanged }) {
         {person.role !== 'admin' && person.status !== 'pending_payment' && (
           <select aria-label={`Status for ${person.name}`} value={person.status} onChange={(e) => change({ status: e.target.value })}>
             <option value="active">Active</option>
-            <option value="disabled">Switched off</option>
+            <option value="inactive">Switched off</option>
           </select>
         )}
       </td>
@@ -76,7 +78,7 @@ function PeopleTab() {
 
   const q = search.trim().toLowerCase();
   const shown = state.users.filter((u) => (role === 'all' || u.role === role)
-    && (!q || `${u.name} ${u.email} ${u.dojo} ${(u.dojos ?? []).join(' ')}`.toLowerCase().includes(q)));
+    && (!q || `${u.name} ${u.email} ${u.dojo ?? ''}`.toLowerCase().includes(q)));
   const replace = (updated) => setState((s) => ({ ...s, users: s.users.map((u) => (u.id === updated.id ? updated : u)) }));
 
   return (
@@ -113,22 +115,17 @@ function PeopleTab() {
   );
 }
 
-const EMPTY_INSTRUCTOR = { name: '', email: '', phone: '', password: '', dojos: [] };
+const EMPTY_INSTRUCTOR = { name: '', email: '', phone: '', password: '', dojo: '' };
 
 function AddInstructorTab() {
   const dojos = useApi('/api/dojos');
   const [form, setForm] = useState(EMPTY_INSTRUCTOR);
   const [errors, setErrors] = useState({});
   const [created, setCreated] = useState(null);
-  const [filter, setFilter] = useState('');
 
   const update = (e) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     setErrors((errs) => ({ ...errs, [e.target.name]: undefined }));
-  };
-  const toggleDojo = (name) => {
-    setForm((f) => ({ ...f, dojos: f.dojos.includes(name) ? f.dojos.filter((d) => d !== name) : [...f.dojos, name] }));
-    setErrors((errs) => ({ ...errs, dojos: undefined }));
   };
 
   async function submit(e) {
@@ -147,7 +144,6 @@ function AddInstructorTab() {
   }
 
   const names = (dojos.data ?? []).map((d) => d.name).sort((a, b) => a.localeCompare(b));
-  const shownDojos = names.filter((n) => n.toLowerCase().includes(filter.trim().toLowerCase()));
 
   return (
     <div className="account-grid">
@@ -170,20 +166,12 @@ function AddInstructorTab() {
             </button>
           </div>
         </Field>
-        <fieldset className={errors.dojos ? 'dojo-picker has-error' : 'dojo-picker'} aria-describedby={errors.dojos ? 'dojos-error' : undefined}>
-          <legend>Teaches at</legend>
-          <input id="dojos" type="search" aria-label="Filter dojos" placeholder="Filter dojos" value={filter} onChange={(e) => setFilter(e.target.value)} />
-          <div className="dojo-picker-list">
-            {shownDojos.map((n) => (
-              <label key={n}>
-                <input type="checkbox" checked={form.dojos.includes(n)} onChange={() => toggleDojo(n)} />
-                {n}
-              </label>
-            ))}
-          </div>
-          <p className="field-hint">{form.dojos.length === 0 ? 'None chosen yet.' : `Chosen: ${form.dojos.join(', ')}`}</p>
-          {errors.dojos && <p className="field-error" id="dojos-error">{errors.dojos}</p>}
-        </fieldset>
+        <Field name="dojo" label="Teaches at" hint="Instructors see the members and classes at this dojo." error={errors.dojo}>
+          <select {...fieldProps('dojo', errors, { hint: true })} value={form.dojo} onChange={update}>
+            <option value="">Choose a dojo</option>
+            {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </Field>
         <button type="submit" className="button button-small">Create instructor account</button>
       </form>
 
@@ -194,7 +182,7 @@ function AddInstructorTab() {
           <dl className="facts">
             <div><dt>Email</dt><dd>{created.email}</dd></div>
             <div><dt>Temporary password</dt><dd><code>{created.password}</code></dd></div>
-            <div><dt>Teaches at</dt><dd>{created.dojos.join(', ')}</dd></div>
+            <div><dt>Teaches at</dt><dd>{created.dojo}</dd></div>
           </dl>
           <p className="fine-print">This password is not shown again once you leave this page.</p>
         </div>
@@ -264,7 +252,11 @@ export default function AdminPage() {
           Shinju-Kai admin
         </Link>
         {isAdmin && (
-          <button type="button" className="button button-quiet button-small" onClick={logout}>Log out</button>
+          <nav className="admin-links" aria-label="Staff pages">
+            <Link to="/attendance">Attendance</Link>
+            <Link to="/eligibility">Grading eligibility</Link>
+            <button type="button" className="button button-quiet button-small" onClick={logout}>Log out</button>
+          </nav>
         )}
       </header>
       <main className="page">

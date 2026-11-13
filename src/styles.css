@@ -247,6 +247,49 @@ cite { display: block; margin-top: 0.5rem; font-style: normal; font-size: 0.95re
 .admin-form input { padding: 0.6rem 0.75rem; border: 1px solid #76809a; border-radius: 6px; font: inherit; }
 .admin-form .button { font-size: 1.15rem; padding: 0.6rem 1.25rem; }
 
+/* Attendance (FP-7): an instructor's phone screen, so every tap target is at least 44px tall. */
+.attendance { min-height: 100svh; background: var(--tatami-soft); }
+.att-bar { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.5rem 0.75rem; padding: 0.75rem 1rem; background: var(--navy-deep); color: var(--white); }
+.att-home img { border-radius: 50%; }
+.att-bar h1 { font: 900 1.9rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.01em; }
+.att-user { grid-column: 1 / -1; color: var(--white); }
+.att-user small { font-weight: 400; opacity: 0.8; }
+.att-main { width: min(100% - 2rem, 640px); margin-inline: auto; padding-block: 1.25rem 2rem; display: grid; gap: 1rem; }
+.att-roster { padding-bottom: 0; }
+.att-field { display: grid; gap: 0.3rem; font-weight: 700; font-size: 0.95rem; }
+.att-field input, .att-field select { min-height: 48px; width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #76809a; border-radius: 8px; font: inherit; font-weight: 400; color: var(--ink); background: var(--white); }
+.att-list { display: grid; gap: 0.5rem; }
+.att-row { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 64px; padding: 0.6rem 0.9rem; border: 1px solid var(--tatami-line); border-radius: 10px; background: var(--white); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.att-row:hover { border-color: var(--navy); }
+.att-row:active { background: var(--tatami); }
+.att-grow { flex: 1; min-width: 0; display: grid; }
+.att-title { font-weight: 700; font-size: 1.1rem; line-height: 1.3; }
+.att-sub { color: var(--ink-soft); font-size: 0.95rem; line-height: 1.35; }
+.att-chevron { font-size: 2rem; line-height: 1; color: var(--navy); }
+.att-tag { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--navy); background: var(--tatami); padding: 0.2rem 0.5rem; border-radius: 999px; }
+.att-roster h2 { font-size: 2.25rem; margin: 0; color: var(--navy); }
+.att-hint { color: var(--ink-soft); font-size: 0.95rem; }
+.att-empty { padding: 1.25rem; border: 1px dashed var(--tatami-line); border-radius: 10px; background: var(--white); color: var(--ink-soft); }
+.att-back { justify-self: start; min-height: 44px; padding: 0 0.25rem; border: 0; background: none; color: var(--navy); font: 700 1.05rem var(--body); cursor: pointer; }
+/* Each status has its own colour and its own word, so it never relies on colour alone. */
+.att-status { flex: none; min-width: 6.5rem; padding: 0.4rem 0.6rem; border-radius: 999px; text-align: center; font-weight: 700; font-size: 0.95rem; border: 2px solid transparent; }
+.att-status.present { background: #1f7a3d; color: var(--white); }
+.att-status.late { background: #f4c542; color: #3d2e00; }
+.att-status.absent { background: var(--red-dark); color: var(--white); }
+.att-status.excused { background: var(--navy); color: var(--white); }
+.att-status.none { border-color: #76809a; border-style: dashed; color: var(--ink-soft); }
+.att-status.add { border-color: var(--navy); color: var(--navy); }
+.att-wide { width: 100%; min-height: 52px; font-size: 1.35rem; }
+.att-walkin { display: grid; gap: 0.6rem; padding-top: 0.5rem; border-top: 1px solid var(--tatami-line); }
+.att-save { position: sticky; bottom: 0; display: grid; gap: 0.5rem; margin-inline: -1rem; padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); background: var(--tatami-soft); border-top: 1px solid var(--tatami-line); }
+.att-message { padding: 0.6rem 0.8rem; border-radius: 8px; font-weight: 600; }
+.att-message.ok { background: #e3f1e7; color: #155a2c; }
+.att-message.error { background: #fde8e8; color: #8f1418; }
+@media (min-width: 700px) {
+  .att-bar { grid-template-columns: auto auto 1fr; }
+  .att-user { grid-column: auto; justify-self: end; width: min(100%, 22rem); }
+}
+
 /* Responsive */
 @media (max-width: 1000px) {
   .timeline { grid-template-columns: repeat(3, 1fr); }

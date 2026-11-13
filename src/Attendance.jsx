@@ -2,14 +2,8 @@
 // Flow: pick a date -> tap a class -> tap students to set their status -> Save.
 // Ported from the first attempt's client/src/App.jsx.
 import { useEffect, useState } from 'react';
-import { api, setCurrentUserId } from './attendanceApi.js';
-
-// Stand-in for login until FP-1: the seeded staff the demo needs.
-const ACTING_USERS = [
-  { id: 2, name: 'Kenji Yamamoto', role: 'Instructor, Shinjuku' },
-  { id: 3, name: 'Mei Lin', role: 'Instructor, Shibuya' },
-  { id: 1, name: 'Aiko Tanaka', role: 'Admin, all centres' },
-];
+import StaffHeader from './StaffHeader.jsx';
+import { api, getCurrentUserId } from './staffApi.js';
 
 // Tapping a student moves them to the next status in this list.
 const STATUS_CYCLE = ['present', 'late', 'absent', 'excused'];
@@ -32,7 +26,7 @@ function statusesById(rows) {
 }
 
 export default function Attendance() {
-  const [actingUserId, setActingUserId] = useState(2);
+  const [actingUserId, setActingUserId] = useState(getCurrentUserId);
   const [date, setDate] = useState(todayLocal);
   const [classes, setClasses] = useState(null); // null while loading
   const [session, setSession] = useState(null); // { sessionId, className, centreName, centreId } once a class is open
@@ -46,8 +40,8 @@ export default function Attendance() {
 
   // Reload the class list when the acting user or date changes, or when coming back from a roster
   // (so a class that now has a session shows "Started").
+  // actingUserId is only a dependency here; staffApi sends the saved id with each request.
   useEffect(() => {
-    setCurrentUserId(actingUserId);
     setClasses(null);
     api(`/api/instructor/classes?date=${date}`)
       .then(setClasses)
@@ -133,26 +127,13 @@ export default function Attendance() {
 
   return (
     <div className="attendance">
-      <header className="att-bar">
-        <a href="/" className="att-home" aria-label="Aikido Shinju-Kai home">
-          <img src="/images/logo.png" alt="" width="40" height="40" />
-        </a>
-        <h1>Attendance</h1>
-        <label className="att-field att-user">
-          <span>Signed in as <small>(demo, until login exists)</small></span>
-          <select
-            value={actingUserId}
-            onChange={(e) => {
-              setActingUserId(Number(e.target.value));
-              backToClasses();
-            }}
-          >
-            {ACTING_USERS.map((user) => (
-              <option key={user.id} value={user.id}>{user.name}: {user.role}</option>
-            ))}
-          </select>
-        </label>
-      </header>
+      <StaffHeader
+        title="Attendance"
+        onUserChange={(id) => {
+          setActingUserId(id);
+          backToClasses();
+        }}
+      />
 
       {!session ? (
         <main className="att-main">

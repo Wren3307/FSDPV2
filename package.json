@@ -12,7 +12,7 @@
     "build": "vite build",
     "start": "cross-env NODE_ENV=production node --disable-warning=ExperimentalWarning server/index.js",
     "seed": "node --disable-warning=ExperimentalWarning server/seed.js",
-    "test": "node --disable-warning=ExperimentalWarning --test server/app.test.js server/attendance.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --test server/app.test.js server/attendance.test.js server/eligibility.test.js"
   },
   "dependencies": {
     "@fontsource-variable/big-shoulders-display": "^5.3.0",

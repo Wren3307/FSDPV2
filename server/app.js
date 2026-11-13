@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { createAttendanceRouter } from './attendance.js';
+import { createEligibilityRouter } from './eligibilityRoutes.js';
 import { validateEnquiry } from './validate.js';
 
 const readJson = (name) => JSON.parse(readFileSync(new URL(`../data/${name}.json`, import.meta.url), 'utf8'));
@@ -56,6 +57,8 @@ export function createApi({ db, adminToken, enquiryLimit = 5 }) {
 
   // FP-7: classes, sessions, rosters and attendance (instructors and admins only).
   api.use(createAttendanceRouter(db.connection));
+  // FP-10: grading eligibility, worked out from attendance and the grading rules.
+  api.use(createEligibilityRouter(db.connection));
 
   api.use((_req, res) => res.status(404).json({ error: 'Not found.' }));
 

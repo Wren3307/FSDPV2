@@ -47,6 +47,7 @@ FSDPV2/
 │   ├── payments.js         # FP-6 Stripe Checkout for the $60 registration fee
 │   ├── attendance.js       # FP-7 attendance API
 │   ├── eligibility.js      # FP-10 grading eligibility engine (+ eligibilityRoutes.js)
+│   ├── notifications.js    # FP-11 eligibility notifications (+ notificationRoutes.js)
 │   ├── schema.js           # Shared SQLite tables (users, centres, classes, attendance, ...)
 │   ├── db.js               # Opens the database; account and enquiry queries
 │   ├── seed.js             # Demo data (npm run seed)
@@ -55,7 +56,8 @@ FSDPV2/
 │   ├── App.jsx, Layout.jsx # Public site
 │   ├── pages/              # Login, sign-up, member/instructor account, hidden admin page
 │   ├── Attendance.jsx      # FP-7 staff screen (/attendance)
-│   └── Eligibility.jsx     # FP-10 staff screen (/eligibility)
+│   ├── Eligibility.jsx     # FP-10 staff screen (/eligibility)
+│   └── GradingProgress.jsx # FP-11 member's Grading tab and notification banner (on /account)
 ├── data/                   # Public site content: dojos, timetables, fees, instructors
 ├── scripts/stripe-setup.js # Creates the registration Product and Price in Stripe
 ├── public/images/          # Photos and logo
@@ -86,6 +88,8 @@ Fill in `.env` first (see the comments in `.env.example`), then open http://loca
 
 * A new, empty database loads the demo data automatically. `npm run seed` reloads it at any time (it replaces accounts, classes and attendance; enquiries are kept).
 * If the server says the database was made by an older version, run `npm run seed` once.
+* If the server or the seed stops with `table users has no column named phone`, your `storage/enquiries.db` was made by an earlier version of the code. Delete that file and start the server again: it makes a new one with the demo data.
+* Restart the server after `npm run seed`. Start-up adds the full dojo list and notifies members who are already eligible for grading.
 * `npm test` runs the API tests. `npm run build` then `npm start` runs the production version.
 
 ### Demo accounts
@@ -97,15 +101,23 @@ Every seeded account uses the password `aikido-demo-2026`. The server never load
 | Instructor at ASK Headquarters Dojo | `kenji.yamamoto@example.com` | Instructor |
 | Instructor at Cheng San Dojo | `mei.lin@example.com` | Instructor |
 | Member (eligible for grading) | `alice.tan@example.com` | Member |
+| Member (one session short of eligible) | `ben.lim@example.com` | Member |
 | Admin | `aiko.tanaka@example.com` | On the hidden admin page |
 
 The admin named by `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` is also created on start-up.
+
+### Demo: a student becomes eligible and is told (FP-7, FP-10, FP-11)
+
+1. On the day, run `npm run seed` and restart the server. The demo data is dated from today, and this puts Ben back at 13 of the 14 sessions he needs.
+2. Log in as Kenji and open `/attendance`. Open a class Ben is in: Monday Beginners, Wednesday General or Friday Fundamentals. Attendance can be saved on the day of the class and the day after.
+3. Mark Ben present and save. The screen says Ben is now eligible for his 5th kyu grading.
+4. Log in as Ben in another browser or a private window. His account shows the notification, and the Grading tab shows his progress. If his account page was already open, it updates within 5 seconds.
 
 ### Accounts
 
 | Who | How they get an account | Where they log in | What they see |
 | --- | --- | --- | --- |
-| Member | Signs up at `/signup` and pays the $60 registration through Stripe | `/login`, choosing Member | Profile, and their Principal Dojo's class times once paid |
+| Member | Signs up at `/signup` and pays the $60 registration through Stripe | `/login`, choosing Member | Profile, their grading progress, and their Principal Dojo's class times once paid |
 | Instructor | The admin creates the account | `/login`, choosing Instructor | Profile, the active members at their dojo, `/attendance` and `/eligibility` |
 | Admin | Created on start-up from `ADMIN_EMAIL` and `ADMIN_PASSWORD` | The hidden page at `VITE_ADMIN_PATH` | All accounts, ranks, adding instructors, enquiries, and the staff screens |
 
@@ -151,8 +163,10 @@ Accounts, attendance and enquiries are saved in `storage/enquiries.db`, which is
 | `PATCH` | `/api/me` | Logged in | Edit own name, phone and (members) Principal Dojo | `FP-16` |
 | `GET` | `/api/instructor/members` | Instructor | Active members at the instructor's dojo | `FP-15` |
 | `GET` | `/api/instructor/classes` | Staff | The day's classes at the instructor's centre | `FP-7` |
-| `PUT` | `/api/sessions/:id/attendance` | Staff | Mark attendance for a session | `FP-7` |
+| `PUT` | `/api/sessions/:id/attendance` | Staff | Mark attendance for a session. The reply lists students the save made eligible | `FP-7`, `FP-11` |
 | `GET` | `/api/eligibility`, `/api/students/:id/eligibility` | Staff (students: their own) | Grading eligibility | `FP-10` |
+| `GET` | `/api/me/notifications` | Logged in | The user's own notifications, newest first | `FP-11` |
+| `POST` | `/api/me/notifications/read` | Logged in | Mark the user's own notifications as read | `FP-11` |
 | `GET` | `/api/admin/users`, `/api/admin/enquiries` | Admin | Accounts and enquiries | — |
 | `POST` | `/api/admin/instructors` | Admin | Create an instructor account | — |
 

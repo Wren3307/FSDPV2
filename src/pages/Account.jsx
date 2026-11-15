@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ROLE_LABEL, STATUS_LABEL, api, useAuth } from '../auth.jsx';
 import { HqTimetable } from '../Classes.jsx';
 import { Field, Notice, fieldProps, focusFirstError } from '../forms.jsx';
+import { GradingBanner, GradingTab } from '../GradingProgress.jsx';
 import { PageShell } from '../Layout.jsx';
 import { useApi } from '../useApi.jsx';
 
@@ -239,6 +240,8 @@ export default function Account() {
 
   const roleTab = user.role === 'student' ? ['classes', 'My classes'] : ['students', 'My students'];
   const tabs = [['profile', 'Profile'], roleTab];
+  // FP-11: members also get a tab showing their own progress towards the next grading.
+  if (user.role === 'student') tabs.push(['grading', 'Grading']);
   const allDojos = dojos.data ?? [];
   const dojoNames = allDojos.filter((d) => d.status === 'open' && !d.membersOnly).map((d) => d.name).sort((a, b) => a.localeCompare(b));
 
@@ -257,6 +260,7 @@ export default function Account() {
       </div>
 
       {user.status === 'pending_payment' && <PaymentBanner />}
+      {user.role === 'student' && <GradingBanner onShowProgress={() => setTab('grading')} />}
 
       <div className="tabs" role="group" aria-label="Account sections">
         {tabs.map(([key, label]) => (
@@ -269,6 +273,7 @@ export default function Account() {
       {tab === 'profile' && <ProfileTab user={user} dojoNames={dojoNames} />}
       {tab === 'classes' && <MyClassesTab user={user} dojos={allDojos} />}
       {tab === 'students' && <MyStudentsTab />}
+      {tab === 'grading' && <GradingTab user={user} />}
     </PageShell>
   );
 }

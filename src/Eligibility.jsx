@@ -6,7 +6,8 @@ import StaffHeader from './StaffHeader.jsx';
 import { api } from './staffApi.js';
 
 // One rule's progress, e.g. "Sessions since last grading: 13 · needs 14", with a bar that fills towards the target.
-function CheckRow({ check }) {
+// Exported so a member's own Grading tab (GradingProgress.jsx, FP-11) shows the rule the same way.
+export function CheckRow({ check }) {
   // A missing actual (no date of birth on file) shows as an empty bar.
   const percent = check.actual === null ? 0 : Math.min(100, Math.round((check.actual / check.required) * 100));
   return (

@@ -34,7 +34,8 @@ export default function Attendance() {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState(null); // { text, tone: 'ok' | 'error' }
+  // { text, tone: 'ok' | 'error' }, plus newlyEligible after a save that made someone eligible (FP-11)
+  const [message, setMessage] = useState(null);
   const [reloads, setReloads] = useState(0); // bumped to fetch the class list again
 
   // Reload the class list when the date changes, or when coming back from a roster
@@ -110,9 +111,11 @@ export default function Attendance() {
     const entries = roster.filter((row) => row.status).map(({ studentId, status }) => ({ studentId, status }));
     setSaving(true);
     try {
-      await api(`/api/sessions/${session.sessionId}/attendance`, { method: 'PUT', body: JSON.stringify(entries) });
+      const result = await api(`/api/sessions/${session.sessionId}/attendance`, { method: 'PUT', body: JSON.stringify(entries) });
       setSaved(statusesById(roster));
-      setMessage({ text: `Saved ${entries.length} students.`, tone: 'ok' });
+      const text = `Saved ${entries.length} ${entries.length === 1 ? 'student' : 'students'}.`;
+      // FP-11: the server also says who this save has just made eligible for their next grading.
+      setMessage({ text, tone: 'ok', newlyEligible: result.newlyEligible });
     } catch (err) {
       setMessage({ text: err.message, tone: 'error' });
     } finally {
@@ -146,8 +149,8 @@ export default function Attendance() {
           {classes === null && <p className="att-empty">Loading classes…</p>}
           {classes?.length === 0 && (
             <p className="att-empty">
-              No classes on this date. The demo data has Monday and Wednesday classes at ASK Headquarters
-              Dojo, and a Saturday class at Cheng San Dojo.
+              No classes on this date. The demo data has Monday, Wednesday and Friday classes at ASK
+              Headquarters Dojo, and a Saturday class at Cheng San Dojo.
             </p>
           )}
           {classes?.length > 0 && (
@@ -234,6 +237,12 @@ export default function Attendance() {
 
           {/* Pinned to the bottom so Save is always one tap away, however long the roster is. */}
           <div className="att-save">
+            {/* FP-11: one line for each student this save has just made eligible for grading. */}
+            {message?.newlyEligible?.map((student) => (
+              <p key={student.studentId} className="att-message eligible" role="status">
+                {student.name} is now eligible for {student.nextRank} grading and has been notified.
+              </p>
+            ))}
             {message && <p className={`att-message ${message.tone}`} role="status">{message.text}</p>}
             <button type="button" className="button att-wide" onClick={saveAttendance} disabled={saving}>
               {saving ? 'Saving…' : unsaved > 0 ? `Save attendance (${unsaved} unsaved)` : 'Save attendance'}

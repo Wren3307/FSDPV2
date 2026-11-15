@@ -288,6 +288,7 @@ cite { display: block; margin-top: 0.5rem; font-style: normal; font-size: 0.95re
 .att-message { padding: 0.6rem 0.8rem; border-radius: 8px; font-weight: 600; }
 .att-message.ok { background: #eff6ff; color: var(--navy); }
 .att-message.error { background: #fef2f2; color: var(--red-dark); }
+.att-message.eligible { background: var(--blue); color: var(--white); } /* FP-11: a student has just become eligible */
 .att-nav { grid-column: 1 / -1; display: flex; gap: 0.25rem; }
 .att-nav a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 0.75rem; border-radius: 6px; color: var(--white); font-weight: 700; text-decoration: none; }
 .att-nav a:hover { background: rgb(255 255 255 / 0.12); color: var(--white); }
@@ -409,6 +410,11 @@ cite { display: block; margin-top: 0.5rem; font-style: normal; font-size: 0.95re
 .banner-title { font: 800 1.6rem/1.1 var(--display); text-transform: uppercase; color: var(--navy); margin: 0 0 0.35rem; }
 .payment-banner .notice { margin-top: 0.75rem; }
 .banner-actions { display: grid; gap: 0.6rem; justify-items: start; }
+/* Grading progress on a member's account (FP-11). Blue is the palette's colour for grading readiness. */
+.notification-banner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem 2rem; background: var(--white); border-left: 6px solid var(--blue); border-radius: 8px; padding: 1.25rem 1.5rem; margin-block: 1rem 1.75rem; }
+.grading-head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+.grading-head .panel-title { margin: 0; }
+.tabs { flex-wrap: wrap; } /* a member now has three tabs, which don't fit on one line on a phone */
 .slots-large li { font-size: 1.05rem; padding-block: 0.3rem; border-bottom: 1px solid var(--tatami); }
 
 .field-inline { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }

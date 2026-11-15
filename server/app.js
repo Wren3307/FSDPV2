@@ -4,6 +4,8 @@ import rateLimit from 'express-rate-limit';
 import { createAttendanceRouter } from './attendance.js';
 import { checkPassword, createSessions, hashPassword, requireRole } from './auth.js';
 import { createEligibilityRouter } from './eligibilityRoutes.js';
+import { createNotificationRouter } from './notificationRoutes.js';
+import { createNotifier } from './notifications.js';
 import { MissingPriceError } from './payments.js';
 import {
   checkNewPassword, hasErrors, validateEnquiry, validateInstructor, validateProfile, validateSignup,
@@ -197,6 +199,13 @@ export function createApi({ db, payments = null, secureCookies = false, limits =
   api.use(createAttendanceRouter(db.connection));
   // FP-10: grading eligibility, worked out from attendance and the grading rules.
   api.use(createEligibilityRouter(db.connection));
+  // FP-11: a user's own notifications, such as "You are now eligible for your 5th kyu grading."
+  api.use(createNotificationRouter(db.connection));
+
+  // FP-11: notify anyone who is already eligible but hasn't been told yet, e.g. in freshly loaded
+  // demo data, or after months passed while the server was off. Attendance saves keep it up to date.
+  const notifier = createNotifier(db.connection);
+  notifier.checkEveryone();
 
   // Admin ------------------------------------------------------------------
 
@@ -238,7 +247,12 @@ export function createApi({ db, payments = null, secureCookies = false, limits =
     }
     if (dojo !== undefined && !dojoNames.has(dojo)) return res.status(400).json({ error: 'Choose a dojo from the list.' });
 
-    if (rank !== undefined) db.setRank(id, rank);
+    if (rank !== undefined) {
+      db.setRank(id, rank);
+      // FP-11: a new rank starts the count towards the next grading again, so an old
+      // "eligible" notification no longer applies.
+      notifier.checkStudents([id]);
+    }
     if (status !== undefined) db.setStatus(id, status);
     if (dojo !== undefined) db.setCentre(id, db.centreId(dojo));
     return res.json({ user: db.getUser(id) });

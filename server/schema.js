@@ -4,6 +4,7 @@
 //   - booleans are INTEGER 0/1
 //   - INTEGER PRIMARY KEY auto-numbers, so there is no IDENTITY or sequence
 // Login (FP-1) adds the auth_sessions table and the phone and payment columns on users.
+// Eligibility notifications (FP-11) add the notifications table.
 
 // Every statement uses IF NOT EXISTS, so this is safe to run on each server start.
 const CREATE_TABLES = `
@@ -114,6 +115,17 @@ const CREATE_TABLES = `
     UNIQUE (from_rank_id, to_rank_id)
   );
 
+  -- Messages shown on a user's account page (FP-11). type says what the message is about, e.g.
+  -- 'grading_eligible'. read_at stays NULL until the user dismisses the message.
+  CREATE TABLE IF NOT EXISTS notifications (
+    id         INTEGER PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    type       TEXT NOT NULL,
+    message    TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    read_at    TEXT
+  );
+
   -- Each student's current rank: their latest rank_history row (ties broken by the newest id).
   -- Postgres used DISTINCT ON for this; SQLite numbers each student's rows and keeps row 1.
   CREATE VIEW IF NOT EXISTS current_ranks AS
@@ -130,11 +142,13 @@ const CREATE_TABLES = `
   CREATE INDEX IF NOT EXISTS idx_attendance_student_id ON attendance (student_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions (date);
   CREATE INDEX IF NOT EXISTS idx_enrolments_class_id ON enrolments (class_id);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id);
 `;
 
 // Children first, so no foreign key is left pointing at a dropped table.
 const DROP_TABLES = `
   DROP VIEW  IF EXISTS current_ranks;
+  DROP TABLE IF EXISTS notifications;
   DROP TABLE IF EXISTS attendance;
   DROP TABLE IF EXISTS sessions;
   DROP TABLE IF EXISTS enrolments;

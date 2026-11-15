@@ -7,10 +7,12 @@ import { createApi } from './app.js';
 import { openDatabase } from './db.js';
 import { ageOn, wholeMonthsBetween } from './eligibility.js';
 import { seedDatabase } from './seed.js';
+import { loginSeedUsers } from './testLogin.js';
 
-let server, base, db;
+let server, base, db, cookies;
 
-const get = (path, userId) => fetch(`${base}${path}`, { headers: userId ? { 'x-user-id': String(userId) } : {} });
+// Calls the API as a given seed user, using that user's login session.
+const get = (path, userId) => fetch(`${base}${path}`, { headers: userId ? { cookie: cookies[userId] } : {} });
 const eligibility = async (studentId) => (await get(`/students/${studentId}/eligibility`, 1)).json();
 const checkNamed = (result, start) => result.checks.find((c) => c.rule.startsWith(start));
 
@@ -22,9 +24,10 @@ before(async () => {
   db = openDatabase(':memory:');
   seedDatabase(db.connection);
   const app = express();
-  app.use('/api', createApi({ db, adminToken: 'secret-token' }));
+  app.use('/api', createApi({ db, limits: { login: 1000 } }));
   await new Promise((resolve) => { server = app.listen(0, resolve); });
   base = `http://127.0.0.1:${server.address().port}/api`;
+  cookies = await loginSeedUsers(base, db);
 });
 
 after(() => {
@@ -94,7 +97,7 @@ test('students see only their own result; staff see anyone\'s', async () => {
 test('batch view lists one centre, and only staff can use it', async () => {
   const centre1 = await (await get('/eligibility?centreId=1', 2)).json();
   assert.equal(centre1.length, 8);
-  assert.ok(centre1.every((r) => r.centreName === 'Shinjuku Dojo'));
+  assert.ok(centre1.every((r) => r.centreName === 'ASK Headquarters Dojo'));
   assert.equal(centre1.find((r) => r.studentName === 'Alice Tan').eligible, true);
 
   const everyone = await (await get('/eligibility', 1)).json();

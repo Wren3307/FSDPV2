@@ -2,9 +2,10 @@ import { createServer as createHttpServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import helmet from 'helmet';
-import { createApi } from './app.js';
+import { createApi, ensureAdmin } from './app.js';
 import { defaultDatabasePath, openDatabase } from './db.js';
-import { seedDatabase } from './seed.js';
+import { createPayments } from './payments.js';
+import { DEMO_PASSWORD, seedDatabase } from './seed.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -16,12 +17,36 @@ try {
 
 const isProduction = process.env.NODE_ENV === 'production';
 const port = Number(process.env.PORT ?? 3000);
+const publicUrl = (process.env.PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/$/, '');
+const adminPath = process.env.VITE_ADMIN_PATH;
 const db = openDatabase(defaultDatabasePath());
 
+const schemaProblem = db.schemaProblem();
+if (schemaProblem) {
+  console.error(schemaProblem);
+  process.exit(1);
+}
+
 // A fresh database has no users, so load the demo data. `npm run seed` reloads it any time.
-if (!db.connection.prepare('SELECT 1 FROM users LIMIT 1').get()) {
+// Never in production: the demo accounts share a published password.
+if (!isProduction && !db.connection.prepare('SELECT 1 FROM users LIMIT 1').get()) {
   seedDatabase(db.connection);
-  console.log('Empty database: loaded the demo data.');
+  console.log(`Empty database: loaded the demo data. Demo accounts use the password "${DEMO_PASSWORD}".`);
+}
+
+if (await ensureAdmin(db, { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD })) {
+  console.log(`Created the admin account for ${process.env.ADMIN_EMAIL}`);
+}
+
+const payments = createPayments({ secretKey: process.env.STRIPE_SECRET_KEY, publicUrl });
+if (!payments) console.warn('STRIPE_SECRET_KEY is not set, so member sign-up is switched off.');
+else {
+  if (!payments.isTestMode) console.warn('Stripe is using a LIVE key: sign-ups will take real payments.');
+  // Check the setup now, so problems show when the server starts rather than at someone's first sign-up.
+  payments.registrationPrice().then(
+    (price) => console.log(`Stripe ready: registration is ${price.currency.toUpperCase()} ${(price.unit_amount / 100).toFixed(2)}.`),
+    (err) => console.warn(`Stripe is not ready: ${err.message}`),
+  );
 }
 
 const app = express();
@@ -38,7 +63,15 @@ app.use(helmet({
   strictTransportSecurity: isProduction,
 }));
 
-app.use('/api', createApi({ db, adminToken: process.env.ADMIN_TOKEN }));
+// Keep the hidden admin page out of search engines.
+if (adminPath) {
+  app.use(adminPath, (_req, res, next) => {
+    res.set('X-Robots-Tag', 'noindex, nofollow');
+    next();
+  });
+}
+
+app.use('/api', createApi({ db, payments, secureCookies: publicUrl.startsWith('https://') }));
 
 if (isProduction) {
   const dist = `${root}dist`;

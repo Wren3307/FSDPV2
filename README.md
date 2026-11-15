@@ -36,85 +36,145 @@ This centralised web application eliminates fragmented paper/spreadsheet workflo
 
 ## 3. Repository Directory Structure
 
-```text
-aikido-shinjukai-system/
-│
-├── backend/                                   # Node.js + Express REST API Server
-│   ├── package.json                           # Backend dependencies (express, cors)
-│   └── server.js                              # Consolidated REST API & in-memory demo DB
-│
-├── frontend/                                  # Client-Side Application (Black, White, Red & Blue Theme)
-│   ├── individual_modules/                    # Separated HTML/CSS/JS per team member
-│   │   ├── member_A_auth_registration/        # FP-1, FP-2, FP-3 (Auth & Welcome Email)
-│   │   ├── member_B_classes_stripe/           # FP-4, FP-5, FP-6 (Class Catalog & Stripe Checkout)
-│   │   ├── member_C_attendance_eligibility/   # FP-7, FP-10 (Attendance Roster & Rules Engine)
-│   │   └── member_D_dashboard_portal/         # FP-15, FP-16 (Instructor Dashboard & Student Portal)
-│   │
-│   └── presentation_prototype/                # Master Unified Prototype for Pitch Demo
-│       ├── index.html                         # Unified Header, Persona Switcher & Layout
-│       ├── styles.css                         # Brand styling (#1A1A1A, #FFFFFF, #C8102E, #1D4ED8)
-│       └── script.js                          # Dynamic persona navigation & API integration
-│
-├── docs/                                      # Project Documentation & Artefacts
-│   ├── Aikido_Shinjukai_Scrum_Log.xlsx        # Daily Scrum Review & Burndown Log
-│   └── Aikido_ShinjuKai_Pitch_Deck.pptx       # Sprint 1 Pitch Presentation Slides
-│
-├── .gitignore                                 # Ignores node_modules and OS temporary files
-└── README.md                                  # Setup, architecture, and workflow guide
-```
+One Node.js app: an Express API and a React front end, served together on one port.
 
----
+```text
+FSDPV2/
+├── server/                 # Express API (Node.js)
+│   ├── index.js            # Starts the server: database, Stripe, Vite in development
+│   ├── app.js              # API routes: content, enquiries, login, sign-up, payments, admin
+│   ├── auth.js             # FP-1 login: password hashing, session cookies, role checks
+│   ├── payments.js         # FP-6 Stripe Checkout for the $60 registration fee
+│   ├── attendance.js       # FP-7 attendance API
+│   ├── eligibility.js      # FP-10 grading eligibility engine (+ eligibilityRoutes.js)
+│   ├── notifications.js    # FP-11 eligibility notifications (+ notificationRoutes.js)
+│   ├── schema.js           # Shared SQLite tables (users, centres, classes, attendance, ...)
+│   ├── db.js               # Opens the database; account and enquiry queries
+│   ├── seed.js             # Demo data (npm run seed)
+│   └── *.test.js           # API tests (npm test)
+├── src/                    # React front end
+│   ├── App.jsx, Layout.jsx # Public site
+│   ├── pages/              # Login, sign-up, member/instructor account, hidden admin page
+│   ├── Attendance.jsx      # FP-7 staff screen (/attendance)
+│   ├── Eligibility.jsx     # FP-10 staff screen (/eligibility)
+│   └── GradingProgress.jsx # FP-11 member's Grading tab and notification banner (on /account)
+├── data/                   # Public site content: dojos, timetables, fees, instructors
+├── scripts/stripe-setup.js # Creates the registration Product and Price in Stripe
+├── public/images/          # Photos and logo
+└── storage/                # SQLite database file (not in git)
+```
 
 ## 4. Tech Stack & Brand Palette
 
-* **Frontend:** HTML5, Tailwind CSS (CDN), Vanilla JavaScript (`fetch` API), Font Awesome 6
-* **Backend:** Node.js, Express.js (`cors`, JSON middleware)
-* **Database Design:** PostgreSQL Relational Schema (6 normalized tables: `users`, `centres`, `classes`, `enrolments`, `attendance`, `grading_assessments`)
-* **Third-Party Integrations:** Stripe Checkout (Test Mode simulation), Nodemailer (automated welcome email logs)
-* **Official Brand Color Coding:**
-  * **Black (`#1A1A1A` / `#111111`):** Headers, footers, primary dark containers
-  * **White (`#FFFFFF` / `#F8FAFC`):** Clean card surfaces and high-contrast text
-  * **Crimson Red (`#C8102E`):** Primary action buttons, brand emblem, declining attendance flags (`<50%`)
-  * **Royal Blue (`#1D4ED8`):** Grading-ready indicators, Stripe checkout, progress bars
+* **Frontend:** React 19, React Router, Vite
+* **Backend:** Node.js 22.13+, Express 5, Helmet, express-rate-limit
+* **Database:** SQLite through Node's built-in `node:sqlite`. The schema in `server/schema.js` is the team's PostgreSQL design rewritten for SQLite.
+* **Payments:** Stripe Checkout (test mode)
+* **Colours:** the public site uses the logo's navy (`#2C3F67`) and red (`#E12429`). The staff screens use the team palette: black (`#1A1A1A`), white, crimson (`#C8102E`) and royal blue (`#1D4ED8`).
 
 ---
 
 ## 5. Setup & Running Instructions
 
-### Step 1: Start the Express Backend Server
-1. Open a terminal and navigate to the `backend/` folder:
-   ```bash
-   cd backend
-   ```
-2. Install required dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the server:
-   ```bash
-   node server.js
-   ```
-   The API server will run at **`http://localhost:5000`**.
+Needs Node.js 22.13 or newer.
 
-### Step 2: Launch the Frontend Prototype
-1. Open `frontend/presentation_prototype/index.html` (or any individual module inside `frontend/individual_modules/`) in Chrome/Edge, or run via **VS Code Live Server**.
-2. Use the top persona selector or module links to test:
-   * **Student Flow:** Register a profile (`FP-2`) -> Preview welcome email (`FP-3`) -> Enrol in class (`FP-5`).
-   * **Instructor Flow:** Mark attendance (`FP-7`) -> Run eligibility check (`FP-10`) -> View dashboard flags (`FP-15`).
-   * **Student Portal:** Check belt rank and grading progress bar (`FP-16`).
+```bash
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Fill in `.env` first (see the comments in `.env.example`), then open http://localhost:3100.
+
+* A new, empty database loads the demo data automatically. `npm run seed` reloads it at any time (it replaces accounts, classes and attendance; enquiries are kept).
+* If the server says the database was made by an older version, run `npm run seed` once.
+* If the server or the seed stops with `table users has no column named phone`, your `storage/enquiries.db` was made by an earlier version of the code. Delete that file and start the server again: it makes a new one with the demo data.
+* Restart the server after `npm run seed`. Start-up adds the full dojo list and notifies members who are already eligible for grading.
+* `npm test` runs the API tests. `npm run build` then `npm start` runs the production version.
+
+### Demo accounts
+
+Every seeded account uses the password `aikido-demo-2026`. The server never loads demo data when `NODE_ENV=production`.
+
+| Log in as | Email | Choose |
+| --- | --- | --- |
+| Instructor at ASK Headquarters Dojo | `kenji.yamamoto@example.com` | Instructor |
+| Instructor at Cheng San Dojo | `mei.lin@example.com` | Instructor |
+| Member (eligible for grading) | `alice.tan@example.com` | Member |
+| Member (one session short of eligible) | `ben.lim@example.com` | Member |
+| Admin | `aiko.tanaka@example.com` | On the hidden admin page |
+
+The admin named by `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` is also created on start-up.
+
+### Demo: a student becomes eligible and is told (FP-7, FP-10, FP-11)
+
+1. On the day, run `npm run seed` and restart the server. The demo data is dated from today, and this puts Ben back at 13 of the 14 sessions he needs.
+2. Log in as Kenji and open `/attendance`. Open a class Ben is in: Monday Beginners, Wednesday General or Friday Fundamentals. Attendance can be saved on the day of the class and the day after.
+3. Mark Ben present and save. The screen says Ben is now eligible for his 5th kyu grading.
+4. Log in as Ben in another browser or a private window. His account shows the notification, and the Grading tab shows his progress. If his account page was already open, it updates within 5 seconds.
+
+### Accounts
+
+| Who | How they get an account | Where they log in | What they see |
+| --- | --- | --- | --- |
+| Member | Signs up at `/signup` and pays the $60 registration through Stripe | `/login`, choosing Member | Profile, their grading progress, and their Principal Dojo's class times once paid |
+| Instructor | The admin creates the account | `/login`, choosing Instructor | Profile, the active members at their dojo, `/attendance` and `/eligibility` |
+| Admin | Created on start-up from `ADMIN_EMAIL` and `ADMIN_PASSWORD` | The hidden page at `VITE_ADMIN_PATH` | All accounts, ranks, adding instructors, enquiries, and the staff screens |
+
+Choosing the wrong role on the login page is refused. Nothing on the site links to the admin page, but its path is inside the site's JavaScript, so the admin password is what actually protects it. Restart the server after changing `VITE_ADMIN_PATH`.
+
+### Payments
+
+Sign-up needs `STRIPE_SECRET_KEY` in `.env`. Use a test key (`sk_test_...`) from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys). Then create the registration Product and its SGD 60 Price in that Stripe account:
+
+```bash
+npm run stripe:setup
+```
+
+The site finds the Price by its lookup key, `ask_registration_fee`, so you don't copy any IDs. Running the script again changes nothing. To change the fee, edit `AMOUNT_CENTS` in `scripts/stripe-setup.js` and run it again: it makes a new Price and archives the old one. Restart the server afterwards.
+
+Pay with the test card `4242 4242 4242 4242`, any future date and any CVC. Without a key, sign-up shows a message asking people to call Headquarters. No publishable key is needed, because payment happens on Stripe's own Checkout page.
+
+After paying, Stripe sends the member to `/signup/complete`, and the server checks the payment with Stripe before activating the account. Members who close the page early can use "Already paid? Check again" on their account page. An admin can also mark a fee paid in person.
+
+### Content and data
+
+| To change | Edit |
+| --- | --- |
+| Dojos and class times on the public site | `data/dojos.json` (each dojo is also added to the `centres` table) |
+| Headquarters timetable | `data/hq-timetable.json` |
+| Instructors shown on the public site | `data/instructors.json` |
+| Fees | `data/fees.json` |
+| Demo accounts, classes and attendance | `server/seed.js` |
+
+Accounts, attendance and enquiries are saved in `storage/enquiries.db`, which is not in git. Nothing is emailed to anyone yet.
 
 ---
 
 ## 6. Backend API Endpoints
 
-| Method | Endpoint | Description | Related Feature |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/login` | Authenticates user by email and role persona | `FP-1` |
-| `POST` | `/api/students/register` | Creates student profile and logs welcome email | `FP-2`, `FP-3` |
-| `POST` | `/api/classes/enrol` | Enrols student in class and simulates Stripe receipt | `FP-5`, `FP-6` |
-| `POST` | `/api/attendance/mark` | Records class attendance and increments counters | `FP-7` |
-| `GET` | `/api/grading/eligibility-check` | Evaluates student attendance & tenure against rules | `FP-10` |
-| `GET` | `/api/dashboard/instructor` | Returns aggregated KPIs, declining flags & readiness | `FP-15`, `FP-16` |
+| Method | Endpoint | Who | Description | Feature |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/login` | Anyone | Log in as `student`, `instructor` or `admin` | `FP-1` |
+| `POST` | `/api/auth/logout` | Logged in | Log out | `FP-1` |
+| `GET` | `/api/auth/me` | Anyone | The logged-in user, or `null` | `FP-1` |
+| `POST` | `/api/auth/signup` | Anyone | Create a member account and open Stripe Checkout | `FP-2`, `FP-6` |
+| `POST` | `/api/payments/checkout`, `/api/payments/confirm` | Member | Pay, or confirm payment of, the registration fee | `FP-6` |
+| `PATCH` | `/api/me` | Logged in | Edit own name, phone and (members) Principal Dojo | `FP-16` |
+| `GET` | `/api/instructor/members` | Instructor | Active members at the instructor's dojo | `FP-15` |
+| `GET` | `/api/instructor/classes` | Staff | The day's classes at the instructor's centre | `FP-7` |
+| `PUT` | `/api/sessions/:id/attendance` | Staff | Mark attendance for a session. The reply lists students the save made eligible | `FP-7`, `FP-11` |
+| `GET` | `/api/eligibility`, `/api/students/:id/eligibility` | Staff (students: their own) | Grading eligibility | `FP-10` |
+| `GET` | `/api/me/notifications` | Logged in | The user's own notifications, newest first | `FP-11` |
+| `POST` | `/api/me/notifications/read` | Logged in | Mark the user's own notifications as read | `FP-11` |
+| `GET` | `/api/admin/users`, `/api/admin/enquiries` | Admin | Accounts and enquiries | — |
+| `POST` | `/api/admin/instructors` | Admin | Create an instructor account | — |
+
+All writes must be sent as JSON. Login uses an HttpOnly session cookie.
+
+### Hosting
+
+Set `NODE_ENV=production`, `PUBLIC_URL` (with `https://`, which also makes login cookies secure), the admin settings, `STRIPE_SECRET_KEY` and, behind a reverse proxy, `TRUST_PROXY=1`. `VITE_ADMIN_PATH` must be set before `npm run build`. The host needs a persistent disk for `storage/`, or accounts and enquiries are lost on redeploy. You can set `DATABASE_PATH` to put the database elsewhere.
 
 ---
 

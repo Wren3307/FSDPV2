@@ -3,6 +3,7 @@
 import express from 'express';
 import { loadUser, requireRole } from './auth.js';
 import { daysBetween, isDate, isoWeekday, today } from './dates.js';
+import { createNotifier } from './notifications.js';
 
 // The only statuses the attendance table accepts.
 const STATUSES = ['present', 'late', 'absent', 'excused'];
@@ -17,6 +18,9 @@ export function createAttendanceRouter(connection) {
 
   // Put on each route rather than router.use(), so unknown /api paths still answer 404, not 401.
   const staffOnly = [loadUser(connection), requireRole('instructor', 'admin')];
+
+  // FP-11: after a save, notifies any student who has just become eligible for their next grading.
+  const notifier = createNotifier(connection);
 
   // A session's centre and date. External sessions have no class, so fall back to the session's own centre.
   const findSession = connection.prepare(`
@@ -189,18 +193,31 @@ export function createAttendanceRouter(connection) {
     }
 
     // One transaction for the whole save: either every row lands or none does.
+    let newlyEligible;
     connection.exec('BEGIN');
     try {
       for (const [studentId, status] of byStudent) {
         upsertAttendance.run(session.id, studentId, status, req.user.id);
       }
+      // FP-11: this save may have taken someone over the line for their next grading (or, after a
+      // correction, back under it). It runs inside the transaction, so the attendance and the
+      // notification are saved together.
+      newlyEligible = notifier.checkStudents([...byStudent.keys()]);
       connection.exec('COMMIT');
     } catch (err) {
       connection.exec('ROLLBACK');
       throw err; // createApi's error handler turns this into a JSON 500.
     }
 
-    res.json({ saved: byStudent.size });
+    res.json({
+      saved: byStudent.size,
+      // The attendance screen shows these straight away, e.g. "Ben Lim is now eligible for 5th kyu".
+      newlyEligible: newlyEligible.map((result) => ({
+        studentId: result.studentId,
+        name: result.studentName,
+        nextRank: result.nextRank,
+      })),
+    });
   });
 
   return router;

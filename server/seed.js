@@ -9,12 +9,17 @@
 //   (c) Chen Wei   (user 6): eligible only if external sessions count (15 regular + 3 external, needs 16)
 //   (d) Divya Nair (user 7): strong in weeks 1-4, dropped off in weeks 5-8
 import { fileURLToPath } from 'node:url';
+import { hashPasswordSync } from './auth.js';
 import { addDays, isoWeekday, today } from './dates.js';
 import { createSchema, dropSchema } from './schema.js';
 
+// Every demo account logs in with this password. Demo data only: the server never seeds in production.
+export const DEMO_PASSWORD = 'aikido-demo-2026';
+
+// Two real dojos from data/dojos.json. The server adds the rest of the dojo list as more centres.
 const CENTRES = [
-  [1, 'Shinjuku Dojo', '1-2-3 Shinjuku, Tokyo'],
-  [2, 'Shibuya Dojo', '4-5-6 Shibuya, Tokyo'],
+  [1, 'ASK Headquarters Dojo', 'Thomson V One, 9 Sin Ming Road, #B1-02, Singapore 575630'],
+  [2, 'Cheng San Dojo', '6 Ang Mo Kio Street 53, Singapore 569205'],
 ];
 
 const RANKS = [
@@ -22,7 +27,7 @@ const RANKS = [
   [5, '2nd kyu', 5], [6, '1st kyu', 6], [7, 'shodan', 7],
 ];
 
-// [id, name, email, role, centre_id, date_of_birth]. Password hashes are placeholders until FP-1.
+// [id, name, email, role, centre_id, date_of_birth]. All log in with DEMO_PASSWORD.
 const USERS = [
   [1, 'Aiko Tanaka', 'aiko.tanaka@example.com', 'admin', null, '1985-02-11'],
   [2, 'Kenji Yamamoto', 'kenji.yamamoto@example.com', 'instructor', 1, '1979-07-19'],
@@ -57,13 +62,20 @@ const CLASSES = [
   [1, 1, 2, 'Monday Beginners', 1, '18:00', '19:30', 1],
   [2, 1, 2, 'Wednesday General', 3, '18:00', '19:30', null],
   [3, 2, 3, 'Saturday Advanced', 6, '09:00', '11:00', 3],
+  [4, 1, 2, 'Friday Fundamentals', 5, '18:00', '19:30', 1],
 ];
+
+// The Friday class only started this week, so it gets no past sessions below. It gives the
+// instructor a class to mark on a Friday (the pitch is on one) without changing the session
+// counts that test cases (a) to (d) rely on. Ben is in it: one "present" takes him to 14 of 14.
+const NEW_CLASS_ID = 4;
 
 // [student_id, class_id, days ago]
 const ENROLMENTS = [
   [4, 1, 330], [5, 1, 320], [6, 1, 300], [7, 1, 310], [8, 1, 280], [9, 1, 290],
   [4, 2, 330], [5, 2, 320], [6, 2, 300], [7, 2, 310], [9, 2, 290], [10, 2, 260], [13, 2, 250],
   [11, 3, 240], [12, 3, 230], [14, 3, 220], [15, 3, 210],
+  [4, 4, 2], [5, 4, 2], [6, 4, 2], [7, 4, 2], [8, 4, 2], [9, 4, 2],
 ];
 
 // [centre_id, days ago, start, end, event name]
@@ -128,10 +140,12 @@ export function seedDatabase(connection, now = today()) {
   try {
     run('INSERT INTO centres (id, name, address) VALUES (?, ?, ?)', CENTRES);
     run('INSERT INTO ranks (id, name, sort_order) VALUES (?, ?, ?)', RANKS);
+    // One hash for every demo account: they all share DEMO_PASSWORD, and hashing is deliberately slow.
+    const demoHash = hashPasswordSync(DEMO_PASSWORD);
     run(
       `INSERT INTO users (id, name, email, role, centre_id, date_of_birth, password_hash)
-       VALUES (?, ?, ?, ?, ?, ?, 'placeholder-hash')`,
-      USERS,
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      USERS.map((user) => [...user, demoHash]),
     );
     run(
       'INSERT INTO rank_history (student_id, rank_id, awarded_on) VALUES (?, ?, ?)',
@@ -160,6 +174,7 @@ export function seedDatabase(connection, now = today()) {
 
     for (let weeksAgo = 8; weeksAgo >= 1; weeksAgo--) {
       for (const [classId, centreId, instructorId, , dayOfWeek, start, end] of CLASSES) {
+        if (classId === NEW_CLASS_ID) continue; // started this week: no past sessions
         const date = addDays(thisMonday, -7 * weeksAgo + (dayOfWeek - 1));
         const { lastInsertRowid } = insertSession.run(classId, centreId, date, start, end, 'regular', null);
         for (const [studentId, enrolledClass] of ENROLMENTS) {

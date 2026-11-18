@@ -24,12 +24,12 @@ This centralised web application eliminates fragmented paper/spreadsheet workflo
 | ID | Story Title | Story Points | Persona | Status |
 | :--- | :--- | :---: | :--- | :--- |
 | **FP-1** | Role-Based Account Login (Student / Instructor / Admin) | 3 | All Users | Done |
-| **FP-2** | Student Registration & Auto-Profile Creation | 3 | Student | In Progress |
-| **FP-3** | Automated Welcome Email Notification | 2 | Student | In Progress |
-| **FP-5** | Class Enrolment & Belt Prerequisite Matching | 3 | Student | In Progress |
+| **FP-2** | Student Registration & Auto-Profile Creation | 3 | Student | Done |
+| **FP-3** | Automated Welcome Email Notification | 2 | Student | Done |
+| **FP-5** | Class Enrolment & Belt Prerequisite Matching | 3 | Student | Done |
 | **FP-7** | Record Class Session Attendance | 5 | Instructor | Done |
-| **FP-10** | Automatic Grading Eligibility Assessment Engine | 3 | Admin / System | In Progress |
-| **FP-15** | Instructor Progression & Attendance Dashboard | 5 | Instructor | In Progress |
+| **FP-10** | Automatic Grading Eligibility Assessment Engine | 3 | Admin / System | Done |
+| **FP-15** | Instructor Progression & Attendance Dashboard | 5 | Instructor | Done |
 | **FP-16** | Student Self-Service Portal | 3 | Student | Done |
 
 ---

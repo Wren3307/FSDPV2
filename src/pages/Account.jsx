@@ -6,6 +6,8 @@ import { Field, Notice, fieldProps, focusFirstError } from '../forms.jsx';
 import { GradingBanner, GradingTab } from '../GradingProgress.jsx';
 import { PageShell } from '../Layout.jsx';
 import { useApi } from '../useApi.jsx';
+import InstructorDashboard from '../InstructorDashboard';
+import StudentSelfServicePortal from '../StudentSelfServicePortal';
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SLOT_LABEL = { adult: 'Adults', children: 'Children', mixed: 'Mixed' };
@@ -230,7 +232,7 @@ function MyStudentsTab() {
 }
 
 export default function Account() {
-  const { user, logout } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
   const dojos = useApi('/api/dojos');
   const [tab, setTab] = useState('profile');
@@ -240,8 +242,18 @@ export default function Account() {
 
   const roleTab = user.role === 'student' ? ['classes', 'My classes'] : ['students', 'My students'];
   const tabs = [['profile', 'Profile'], roleTab];
-  // FP-11: members also get a tab showing their own progress towards the next grading.
-  if (user.role === 'student') tabs.push(['grading', 'Grading']);
+
+  // FP-11 & FP-16: members get Grading progress and Student Self-Service Portal tabs
+  if (user.role === 'student') {
+    tabs.push(['grading', 'Grading']);
+    tabs.push(['portal', 'Student Portal']);
+  }
+
+  // FP-15: instructors get Progression & Attendance Dashboard tab
+  if (user.role === 'instructor') {
+    tabs.push(['dashboard', 'Progression Dashboard']);
+  }
+
   const allDojos = dojos.data ?? [];
   const dojoNames = allDojos.filter((d) => d.status === 'open' && !d.membersOnly).map((d) => d.name).sort((a, b) => a.localeCompare(b));
 
@@ -274,6 +286,8 @@ export default function Account() {
       {tab === 'classes' && <MyClassesTab user={user} dojos={allDojos} />}
       {tab === 'students' && <MyStudentsTab />}
       {tab === 'grading' && <GradingTab user={user} />}
+      {tab === 'dashboard' && <InstructorDashboard />}
+      {tab === 'portal' && <StudentSelfServicePortal user={user} onProfileUpdated={(updated) => setUser(updated)} />}
     </PageShell>
   );
 }

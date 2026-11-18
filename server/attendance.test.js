@@ -8,13 +8,14 @@ import { createApi } from './app.js';
 import { addDays, isoWeekday, today } from './dates.js';
 import { openDatabase } from './db.js';
 import { seedDatabase } from './seed.js';
+import { loginSeedUsers } from './testLogin.js';
 
-let server, base, db;
+let server, base, db, cookies;
 
-// Calls the API as a given seed user (the stub auth reads X-User-Id).
+// Calls the API as a given seed user, using that user's login session.
 function call(method, path, userId, body) {
   const headers = { 'content-type': 'application/json' };
-  if (userId) headers['x-user-id'] = String(userId);
+  if (userId) headers.cookie = cookies[userId];
   return fetch(`${base}${path}`, { method, headers, body: body && JSON.stringify(body) });
 }
 
@@ -25,9 +26,10 @@ before(async () => {
   db = openDatabase(':memory:');
   seedDatabase(db.connection);
   const app = express();
-  app.use('/api', createApi({ db, adminToken: 'secret-token' }));
+  app.use('/api', createApi({ db, limits: { login: 1000 } }));
   await new Promise((resolve) => { server = app.listen(0, resolve); });
   base = `http://127.0.0.1:${server.address().port}/api`;
+  cookies = await loginSeedUsers(base, db);
 });
 
 after(() => {

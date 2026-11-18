@@ -3,7 +3,8 @@
 //   - dates are 'YYYY-MM-DD' text and times are 'HH:MM' text (both sort correctly as text)
 //   - booleans are INTEGER 0/1
 //   - INTEGER PRIMARY KEY auto-numbers, so there is no IDENTITY or sequence
-// Payments (Stripe) are left for that story's owner to add.
+// Login (FP-1) adds the auth_sessions table and the phone and payment columns on users.
+// Eligibility notifications (FP-11) add the notifications table.
 
 // Every statement uses IF NOT EXISTS, so this is safe to run on each server start.
 const CREATE_TABLES = `
@@ -13,18 +14,31 @@ const CREATE_TABLES = `
     address TEXT
   );
 
-  -- Students, instructors and admins all live here. A student's home centre is users.centre_id.
+  -- Students, instructors and admins all live here. A student's home centre is users.centre_id,
+  -- and an instructor's is the centre they teach at.
+  -- membership_status: 'pending_payment' until the $60 registration is paid (Stripe or at the dojo),
+  -- then 'active'. 'inactive' means an admin has switched the account off, so it cannot log in.
   CREATE TABLE IF NOT EXISTS users (
     id                INTEGER PRIMARY KEY,
     name              TEXT NOT NULL,
-    email             TEXT NOT NULL UNIQUE,
+    email             TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash     TEXT NOT NULL,
     role              TEXT NOT NULL CHECK (role IN ('student', 'instructor', 'admin')),
     centre_id         INTEGER REFERENCES centres (id) ON DELETE SET NULL,
     date_of_birth     TEXT,
-    membership_status TEXT NOT NULL DEFAULT 'active' CHECK (membership_status IN ('active', 'inactive')),
+    phone             TEXT NOT NULL DEFAULT '',
+    membership_status TEXT NOT NULL DEFAULT 'active' CHECK (membership_status IN ('pending_payment', 'active', 'inactive')),
+    checkout_session  TEXT,
+    paid_at           TEXT,
     joined_on         TEXT NOT NULL DEFAULT (date('now')),
     created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Login sessions (FP-1). The browser holds a random token; only its SHA-256 hash is stored.
+  CREATE TABLE IF NOT EXISTS auth_sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    expires_at INTEGER NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS ranks (
@@ -101,6 +115,17 @@ const CREATE_TABLES = `
     UNIQUE (from_rank_id, to_rank_id)
   );
 
+  -- Messages shown on a user's account page (FP-11). type says what the message is about, e.g.
+  -- 'grading_eligible'. read_at stays NULL until the user dismisses the message.
+  CREATE TABLE IF NOT EXISTS notifications (
+    id         INTEGER PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    type       TEXT NOT NULL,
+    message    TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    read_at    TEXT
+  );
+
   -- Each student's current rank: their latest rank_history row (ties broken by the newest id).
   -- Postgres used DISTINCT ON for this; SQLite numbers each student's rows and keeps row 1.
   CREATE VIEW IF NOT EXISTS current_ranks AS
@@ -117,17 +142,20 @@ const CREATE_TABLES = `
   CREATE INDEX IF NOT EXISTS idx_attendance_student_id ON attendance (student_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions (date);
   CREATE INDEX IF NOT EXISTS idx_enrolments_class_id ON enrolments (class_id);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id);
 `;
 
 // Children first, so no foreign key is left pointing at a dropped table.
 const DROP_TABLES = `
   DROP VIEW  IF EXISTS current_ranks;
+  DROP TABLE IF EXISTS notifications;
   DROP TABLE IF EXISTS attendance;
   DROP TABLE IF EXISTS sessions;
   DROP TABLE IF EXISTS enrolments;
   DROP TABLE IF EXISTS classes;
   DROP TABLE IF EXISTS grading_rules;
   DROP TABLE IF EXISTS rank_history;
+  DROP TABLE IF EXISTS auth_sessions;
   DROP TABLE IF EXISTS users;
   DROP TABLE IF EXISTS ranks;
   DROP TABLE IF EXISTS centres;
@@ -135,6 +163,19 @@ const DROP_TABLES = `
 
 export function createSchema(connection) {
   connection.exec(CREATE_TABLES);
+}
+
+/**
+ * CREATE TABLE IF NOT EXISTS never changes a table that is already there, so a database made by an
+ * older version keeps its old users table. Returns null when users matches this schema, or a message
+ * saying how to fix it.
+ */
+export function checkSchema(connection) {
+  const columns = new Set(connection.prepare('PRAGMA table_info(users)').all().map((c) => c.name));
+  const needed = ['centre_id', 'phone', 'checkout_session', 'paid_at'];
+  if (needed.every((c) => columns.has(c))) return null;
+  return 'This database was made by an older version of the site. Run "npm run seed" to rebuild it '
+    + 'with the demo data (enquiries are kept), then restart the server.';
 }
 
 // Used by the seed to start from empty tables. The enquiries table is left alone.

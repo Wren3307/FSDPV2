@@ -3,10 +3,11 @@
 // All the checking happens on the server (server/eligibility.js); this screen only displays the results.
 import { useEffect, useState } from 'react';
 import StaffHeader from './StaffHeader.jsx';
-import { api, getCurrentUserId } from './staffApi.js';
+import { api } from './staffApi.js';
 
 // One rule's progress, e.g. "Sessions since last grading: 13 · needs 14", with a bar that fills towards the target.
-function CheckRow({ check }) {
+// Exported so a member's own Grading tab (GradingProgress.jsx, FP-11) shows the rule the same way.
+export function CheckRow({ check }) {
   // A missing actual (no date of birth on file) shows as an empty bar.
   const percent = check.actual === null ? 0 : Math.min(100, Math.round((check.actual / check.required) * 100));
   return (
@@ -49,7 +50,6 @@ function StudentCard({ result }) {
 }
 
 export default function Eligibility() {
-  const [userId, setUserId] = useState(getCurrentUserId);
   const [centres, setCentres] = useState([]);
   const [centreId, setCentreId] = useState('');
   const [rules, setRules] = useState([]);
@@ -58,7 +58,7 @@ export default function Eligibility() {
   const [runs, setRuns] = useState(0); // bumped by the "Run check again" button
   const [error, setError] = useState(null);
 
-  // The centre list and the rules table only change with the user (a student would be refused).
+  // The centre list and the rules table load once; StaffOnly has already checked this is staff.
   useEffect(() => {
     setError(null);
     Promise.all([api('/api/centres'), api('/api/grading-rules')])
@@ -67,7 +67,7 @@ export default function Eligibility() {
         setRules(ruleList);
       })
       .catch((err) => setError(err.message));
-  }, [userId]);
+  }, []);
 
   // The engine works eligibility out on every request, so fetching again is "running" it again.
   useEffect(() => {
@@ -81,14 +81,14 @@ export default function Eligibility() {
         setResults([]);
         setError(err.message);
       });
-  }, [userId, centreId, runs]);
+  }, [centreId, runs]);
 
   const ready = results?.filter((r) => r.eligible) ?? [];
   const notReady = results?.filter((r) => !r.eligible) ?? [];
 
   return (
     <div className="attendance">
-      <StaffHeader title="Eligibility" onUserChange={setUserId} />
+      <StaffHeader title="Eligibility" />
 
       <main className="att-main">
         <div className="elg-controls">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { STATUS_LABEL, api } from './auth.jsx';
+import { api } from './auth.jsx';
+import { formatDay } from './Membership.jsx';
 
 // dojoNames: the dojos a member may choose (open and not members-only), the same list the
 // Profile tab uses. The API identifies the Principal Dojo by name, not by centre id.
@@ -39,7 +40,7 @@ export default function StudentSelfServicePortal({ user, dojoNames = [], onProfi
   const attended = sessions?.actual ?? 0;
   const required = sessions?.required ?? 0;
   const pct = required ? Math.min(100, Math.round((attended / required) * 100)) : 0;
-  const isActive = user?.status === 'active';
+  const isMember = Boolean(user?.is_member);
 
   return (
     <section style={{ marginTop: '1.5rem' }}>
@@ -82,7 +83,7 @@ export default function StudentSelfServicePortal({ user, dojoNames = [], onProfi
             <div style={{ marginTop: '0.25rem' }}>
               <span
                 style={{
-                  backgroundColor: isActive ? '#1D4ED8' : '#C8102E',
+                  backgroundColor: isMember ? '#1D4ED8' : '#6B7280',
                   color: '#FFFFFF',
                   padding: '0.25rem 0.65rem',
                   borderRadius: '999px',
@@ -90,9 +91,7 @@ export default function StudentSelfServicePortal({ user, dojoNames = [], onProfi
                   fontWeight: 600,
                 }}
               >
-                {isActive ? 'Active Member'
-                  : user?.status === 'pending_payment' ? 'Pending $60 Registration Fee'
-                    : STATUS_LABEL[user?.status] ?? 'Unknown'}
+                {isMember ? `Member until ${formatDay(user.member_until)}` : 'Free account (not a member)'}
               </span>
             </div>
           </div>

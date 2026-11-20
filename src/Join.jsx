@@ -4,7 +4,7 @@ import { LoadFailed, useApi } from './useApi.jsx';
 const STEPS = [
   { title: 'Try a class', text: 'Book a $29 trial session at Headquarters, or visit any dojo to watch a class and talk to the instructor.' },
   { title: 'Choose your Principal Dojo', text: 'This is the dojo where you will train regularly.' },
-  { title: 'Sign up', text: 'Fill in the membership application form, bring 2 current photos, sign the Deed of Waiver and Indemnity, and pay the $60 registration fee.' },
+  { title: 'Sign up', text: 'Create a free account online, then become a member for $60 (your first year, including registration) to get member prices and offers. Bring 2 current photos and sign the Deed of Waiver and Indemnity at your first class.' },
   { title: 'Get your training attire', text: 'Contact us one week before your first class, and we will bring your jacket, pants and belt to the dojo.' },
 ];
 

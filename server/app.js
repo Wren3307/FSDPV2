@@ -6,6 +6,7 @@ import { checkPassword, createSessions, hashPassword, requireRole } from './auth
 import { createEligibilityRouter } from './eligibilityRoutes.js';
 import { createNotificationRouter } from './notificationRoutes.js';
 import { createNotifier } from './notifications.js';
+import { PLANS, createMemberships } from './membership.js';
 import { MissingPriceError } from './payments.js';
 import {
   checkNewPassword, hasErrors, validateEnquiry, validateInstructor, validateProfile, validateSignup,
@@ -15,9 +16,10 @@ const readJson = (name) => JSON.parse(readFileSync(new URL(`../data/${name}.json
 
 // Members are 'student' accounts in the database; the site calls them members.
 const LOGIN_ROLES = ['student', 'instructor', 'admin'];
-const ROLE_WORDS = { student: 'a member', instructor: 'an instructor', admin: 'an admin' };
-const ROLE_CHOICE = { student: 'Member', instructor: 'Instructor' };
-const STATUSES = ['active', 'inactive', 'pending_payment'];
+const ROLE_WORDS = { student: 'a student', instructor: 'an instructor', admin: 'an admin' };
+const ROLE_CHOICE = { student: 'Student', instructor: 'Instructor' };
+const STATUSES = ['active', 'inactive'];
+const HQ_PHONE = '(+65) 6513 1588';
 
 const limit = (windowMinutes, max, error) => rateLimit({
   windowMs: windowMinutes * 60 * 1000,
@@ -80,7 +82,7 @@ export function createApi({ db, payments = null, secureCookies = false, limits =
     const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
     const role = req.body?.role;
-    if (!LOGIN_ROLES.includes(role)) return res.status(400).json({ error: 'Choose whether you are logging in as a member or an instructor.' });
+    if (!LOGIN_ROLES.includes(role)) return res.status(400).json({ error: 'Choose whether you are logging in as a student or an instructor.' });
 
     const account = email ? db.getAuthByEmail(email) : undefined;
     const valid = await checkPassword(password, account?.password_hash);
@@ -101,9 +103,28 @@ export function createApi({ db, payments = null, secureCookies = false, limits =
     res.json({ ok: true });
   });
 
-  api.post('/auth/signup', signupLimit, async (req, res) => {
-    if (!payments) return res.status(503).json({ error: 'Online sign-up is not available yet because payments are not set up. Call (+65) 6513 1588 to join.' });
+  // FP-2: sign-up is free. Membership is optional and bought separately (see membership.js); a member
+  // can tick "also become a member" to go straight to payment.
+  const memberships = createMemberships(db.connection);
 
+  // Opens Stripe Checkout for the user's next membership. Returns { checkoutUrl } or { error, status }.
+  async function startMembershipCheckout(user) {
+    const next = memberships.nextPurchase(user.id);
+    if (!next.canBuy) {
+      return { status: 409, error: `You are already a member until ${memberships.status(user.id).memberUntil}.` };
+    }
+    if (!payments) return { status: 503, error: `Online payment is not set up yet. Pay at your dojo, or call ${HQ_PHONE}.` };
+    try {
+      const checkout = await payments.createCheckout(user, next.kind);
+      db.setCheckoutSession(user.id, checkout.id);
+      return { checkoutUrl: checkout.url };
+    } catch (err) {
+      console.error(err instanceof MissingPriceError ? err.message : `Stripe checkout failed: ${err.message}`);
+      return { status: 502, error: 'The payment page could not open. Try again in a moment.' };
+    }
+  }
+
+  api.post('/auth/signup', signupLimit, async (req, res) => {
     const { errors, values } = validateSignup(req.body, signupDojos);
     if (hasErrors(errors)) return res.status(400).json({ errors });
 
@@ -114,54 +135,61 @@ export function createApi({ db, payments = null, secureCookies = false, limits =
       passwordHash: await hashPassword(values.password),
       phone: values.phone,
       centreId: db.centreId(values.dojo),
-      status: 'pending_payment',
+      status: 'active',
     });
     if (!id) return res.status(409).json({ errors: { email: 'An account with this email already exists. Log in instead.' } });
 
     sessions.start(res, id);
-    try {
-      const checkout = await payments.createCheckout(db.getUser(id));
-      db.setCheckoutSession(id, checkout.id);
-      return res.status(201).json({ checkoutUrl: checkout.url });
-    } catch (err) {
-      console.error(err instanceof MissingPriceError ? err.message : `Stripe checkout failed: ${err.message}`);
-      return res.status(502).json({ error: 'Your account was created, but the payment page could not open. Go to your account to try paying again.', account: true });
-    }
+    const user = db.getUser(id);
+    if (!values.membership) return res.status(201).json({ user });
+
+    // The account exists either way; if payment can't start, they can become a member from their account.
+    const checkout = await startMembershipCheckout(user);
+    if (checkout.checkoutUrl) return res.status(201).json({ user, checkoutUrl: checkout.checkoutUrl });
+    return res.status(201).json({ user, notice: `Your free account is ready. ${checkout.error} You can become a member from your account at any time.` });
   });
 
-  // Payments (registration fee) --------------------------------------------
+  // Membership -------------------------------------------------------------
 
-  const needsPayment = (req, res, next) => {
-    if (req.user.status !== 'pending_payment') return res.status(409).json({ error: 'Your registration fee is already paid.' });
-    if (!payments) return res.status(503).json({ error: 'Online payment is not set up yet. Call (+65) 6513 1588 to pay.' });
-    return next();
-  };
-
-  api.post('/payments/checkout', requireRole('student'), needsPayment, async (req, res) => {
-    try {
-      const checkout = await payments.createCheckout(req.user);
-      db.setCheckoutSession(req.user.id, checkout.id);
-      res.json({ checkoutUrl: checkout.url });
-    } catch (err) {
-      console.error(err instanceof MissingPriceError ? err.message : `Stripe checkout failed: ${err.message}`);
-      res.status(502).json({ error: 'The payment page could not open. Try again in a moment.' });
-    }
+  // The member's own membership: whether they are a member, until when, what their next payment
+  // would buy, and every membership they have had.
+  api.get('/me/membership', requireRole('student'), (req, res) => {
+    res.json({
+      ...memberships.status(req.user.id),
+      history: memberships.history(req.user.id),
+      awaitingPayment: Boolean(db.getCheckoutSession(req.user.id)),
+      onlinePayment: Boolean(payments),
+    });
   });
 
-  api.post('/payments/confirm', requireRole('student'), needsPayment, async (req, res) => {
+  api.post('/payments/checkout', requireRole('student'), async (req, res) => {
+    const checkout = await startMembershipCheckout(req.user);
+    if (checkout.checkoutUrl) return res.json({ checkoutUrl: checkout.checkoutUrl });
+    return res.status(checkout.status).json({ error: checkout.error });
+  });
+
+  // Records the membership once Stripe confirms the payment. Safe to repeat: a session that has
+  // already been recorded just returns the user again.
+  api.post('/payments/confirm', requireRole('student'), async (req, res) => {
+    if (!payments) return res.status(503).json({ error: `Online payment is not set up yet. Call ${HQ_PHONE}.` });
     const sessionId = typeof req.body?.sessionId === 'string' && req.body.sessionId
       ? req.body.sessionId
       : db.getCheckoutSession(req.user.id);
     if (!sessionId) return res.status(404).json({ error: 'No payment was found for your account yet.' });
+    let paid;
     try {
-      if (!(await payments.isPaid(sessionId, req.user.id))) {
-        return res.status(402).json({ error: 'Your payment has not gone through yet. If you have just paid, wait a minute and check again.' });
-      }
+      paid = await payments.paidMembership(sessionId, req.user.id);
     } catch (err) {
       console.error('Stripe lookup failed', err.message);
       return res.status(502).json({ error: 'Your payment could not be checked right now. Try again in a moment.' });
     }
-    db.markPaid(req.user.id, sessionId);
+    if (!paid) {
+      return res.status(402).json({ error: 'Your payment has not gone through yet. If you have just paid, wait a minute and check again.' });
+    }
+    memberships.record(req.user.id, {
+      kind: paid.kind, amountCents: paid.amountCents ?? PLANS[paid.kind].amountCents, paidVia: 'stripe', reference: sessionId,
+    });
+    if (db.getCheckoutSession(req.user.id) === sessionId) db.setCheckoutSession(req.user.id, null);
     return res.json({ user: db.getUser(req.user.id) });
   });
 
@@ -213,7 +241,7 @@ export function createApi({ db, payments = null, secureCookies = false, limits =
   admin.use(requireRole('admin'));
 
   admin.get('/enquiries', (_req, res) => res.json({ enquiries: db.listEnquiries() }));
-  admin.get('/users', (_req, res) => res.json({ users: db.listUsers(), ranks: db.listRanks() }));
+  admin.get('/users', (_req, res) => res.json({ users: db.listUsers(), ranks: db.listRanks(), plans: PLANS }));
 
   admin.post('/instructors', async (req, res) => {
     const { errors, values } = validateInstructor(req.body, dojoNames);
@@ -242,9 +270,6 @@ export function createApi({ db, payments = null, secureCookies = false, limits =
       return res.status(400).json({ error: 'Choose a rank from the list. Only members have ranks.' });
     }
     if (status !== undefined && !STATUSES.includes(status)) return res.status(400).json({ error: 'Choose a status from the list.' });
-    if (status === 'active' && target.status === 'pending_payment') {
-      return res.status(400).json({ error: 'This member has not paid the registration fee. Mark them as paid only after you receive payment at the dojo.' });
-    }
     if (dojo !== undefined && !dojoNames.has(dojo)) return res.status(400).json({ error: 'Choose a dojo from the list.' });
 
     if (rank !== undefined) {
@@ -258,12 +283,15 @@ export function createApi({ db, payments = null, secureCookies = false, limits =
     return res.json({ user: db.getUser(id) });
   });
 
-  // An admin records a fee paid in person, which activates a pending member.
-  admin.post('/users/:id/mark-paid', (req, res) => {
+  // An admin records a membership paid in person at a dojo. The price and period are the same as
+  // online: $60 for a first membership, $48 for a renewal, to 31 December.
+  admin.post('/users/:id/membership', (req, res) => {
     const id = Number(req.params.id);
     const target = Number.isInteger(id) ? db.getUser(id) : null;
-    if (!target || target.status !== 'pending_payment') return res.status(400).json({ error: 'Only members waiting to pay can be marked as paid.' });
-    db.markPaid(id, 'paid-at-dojo');
+    if (!target || target.role !== 'student') return res.status(400).json({ error: 'Only member accounts can have a membership.' });
+    const next = memberships.nextPurchase(id);
+    if (!next.canBuy) return res.status(409).json({ error: `${target.name} is already a member until ${target.member_until}.` });
+    memberships.record(id, { kind: next.kind, paidVia: 'dojo', recordedBy: req.user.id });
     return res.json({ user: db.getUser(id) });
   });
 

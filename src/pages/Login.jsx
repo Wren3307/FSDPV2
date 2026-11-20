@@ -5,7 +5,7 @@ import { Field, Notice } from '../forms.jsx';
 import { PageShell } from '../Layout.jsx';
 
 const ROLES = [
-  ['student', 'Member'],
+  ['student', 'Student'],
   ['instructor', 'Instructor'],
 ];
 
@@ -55,7 +55,7 @@ export function LoginForm({ fixedRole, onLoggedIn }) {
       </Field>
       {error && <Notice>{error}</Notice>}
       <button type="submit" className="button" disabled={busy}>
-        {busy ? 'Logging in' : `Log in${fixedRole ? '' : ` as ${role === 'student' ? 'a member' : 'an instructor'}`}`}
+        {busy ? 'Logging in' : `Log in${fixedRole ? '' : ` as ${role === 'student' ? 'a student' : 'an instructor'}`}`}
       </button>
     </form>
   );
@@ -69,10 +69,10 @@ export default function Login() {
 
   return (
     <PageShell title="Log in" narrow>
-      <p className="page-lead">Members and instructors log in here. Choose which one you are first.</p>
+      <p className="page-lead">Students and instructors log in here. Choose which one you are first.</p>
       <LoginForm onLoggedIn={(u) => { setUser(u); navigate('/account'); }} />
       <p className="page-aside">
-        Not a member yet? <Link to="/signup">Sign up and pay the $60 registration</Link>.<br />
+        No account yet? <Link to="/signup">Sign up for free</Link>.<br />
         Forgot your password? Call Headquarters on <a href="tel:+6565131588">(+65) 6513 1588</a>.
       </p>
     </PageShell>

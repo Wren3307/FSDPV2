@@ -44,7 +44,8 @@ FSDPV2/
 │   ├── index.js            # Starts the server: database, Stripe, Vite in development
 │   ├── app.js              # API routes: content, enquiries, login, sign-up, payments, admin
 │   ├── auth.js             # FP-1 login: password hashing, session cookies, role checks
-│   ├── payments.js         # FP-6 Stripe Checkout for the $60 registration fee
+│   ├── payments.js         # FP-6 Stripe Checkout for membership ($60 joining, $48 renewal)
+│   ├── membership.js       # FP-2 membership rules: who is a member, until when, what a payment buys
 │   ├── attendance.js       # FP-7 attendance API
 │   ├── eligibility.js      # FP-10 grading eligibility engine (+ eligibilityRoutes.js)
 │   ├── notifications.js    # FP-11 eligibility notifications (+ notificationRoutes.js)
@@ -59,7 +60,7 @@ FSDPV2/
 │   ├── Eligibility.jsx     # FP-10 staff screen (/eligibility)
 │   └── GradingProgress.jsx # FP-11 member's Grading tab and notification banner (on /account)
 ├── data/                   # Public site content: dojos, timetables, fees, instructors
-├── scripts/stripe-setup.js # Creates the registration Product and Price in Stripe
+├── scripts/stripe-setup.js # Creates the membership Products and Prices in Stripe
 ├── public/images/          # Photos and logo
 └── storage/                # SQLite database file (not in git)
 ```
@@ -100,8 +101,9 @@ Every seeded account uses the password `aikido-demo-2026`. The server never load
 | --- | --- | --- |
 | Instructor at ASK Headquarters Dojo | `kenji.yamamoto@example.com` | Instructor |
 | Instructor at Cheng San Dojo | `mei.lin@example.com` | Instructor |
-| Member (eligible for grading) | `alice.tan@example.com` | Member |
-| Member (one session short of eligible) | `ben.lim@example.com` | Member |
+| Student, paid member (eligible for grading) | `alice.tan@example.com` | Student |
+| Student, membership ended last year (one session short of eligible) | `ben.lim@example.com` | Student |
+| Student, free account, never a member | `ethan.koh@example.com` | Student |
 | Admin | `aiko.tanaka@example.com` | On the hidden admin page |
 
 The admin named by `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` is also created on start-up.
@@ -117,25 +119,35 @@ The admin named by `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` is also created 
 
 | Who | How they get an account | Where they log in | What they see |
 | --- | --- | --- | --- |
-| Member | Signs up at `/signup` and pays the $60 registration through Stripe | `/login`, choosing Member | Profile, their grading progress, and their Principal Dojo's class times once paid |
-| Instructor | The admin creates the account | `/login`, choosing Instructor | Profile, the active members at their dojo, `/attendance` and `/eligibility` |
-| Admin | Created on start-up from `ADMIN_EMAIL` and `ADMIN_PASSWORD` | The hidden page at `VITE_ADMIN_PATH` | All accounts, ranks, adding instructors, enquiries, and the staff screens |
+| Student | Signs up for free at `/signup`, and can become a paid member there or later | `/login`, choosing Student | Profile, membership, their grading progress, and their Principal Dojo's class times |
+| Instructor | The admin creates the account | `/login`, choosing Instructor | Profile, the students at their dojo and whether each is a paid member, `/attendance` and `/eligibility` |
+| Admin | Created on start-up from `ADMIN_EMAIL` and `ADMIN_PASSWORD` | The hidden page at `VITE_ADMIN_PATH` | All accounts, ranks, memberships (and recording membership paid at a dojo), adding instructors, enquiries, and the staff screens |
+
+### Membership (FP-2)
+
+Sign-up is free. Membership is a separate, optional purchase, and it is what member offers and member prices check:
+
+* The first membership is **$60**. It includes the one-time registration. Each later year is **$48**.
+* A membership runs to **31 December** of the year it is for. Paying while still a member adds the next calendar year. Someone in their final year can renew for next year, but not further ahead.
+* Every payment is a row in the `memberships` table, with its period, amount and whether it was paid online (with the Stripe session id) or at a dojo (with the admin who recorded it).
+* To check whether someone is a member, use `is_member` and `member_until` on any user the API returns (`/api/auth/me`, `/api/admin/users`, `/api/instructor/members`). In server code, use `createMemberships(connection).status(userId)` from `server/membership.js`.
+* Accounts in a database from before free sign-up are converted on start-up. Accounts waiting to pay become free accounts. Anyone who had paid the registration gets a membership to 31 December of the year they paid.
 
 Choosing the wrong role on the login page is refused. Nothing on the site links to the admin page, but its path is inside the site's JavaScript, so the admin password is what actually protects it. Restart the server after changing `VITE_ADMIN_PATH`.
 
 ### Payments
 
-Sign-up needs `STRIPE_SECRET_KEY` in `.env`. Use a test key (`sk_test_...`) from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys). Then create the registration Product and its SGD 60 Price in that Stripe account:
+Paying for membership online needs `STRIPE_SECRET_KEY` in `.env`. Use a test key (`sk_test_...`) from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys). Then create the two membership Products and Prices (SGD 60 joining, SGD 48 renewal) in that Stripe account:
 
 ```bash
 npm run stripe:setup
 ```
 
-The site finds the Price by its lookup key, `ask_registration_fee`, so you don't copy any IDs. Running the script again changes nothing. To change the fee, edit `AMOUNT_CENTS` in `scripts/stripe-setup.js` and run it again: it makes a new Price and archives the old one. Restart the server afterwards.
+The site finds each Price by its lookup key, `ask_registration_fee` and `ask_annual_membership`, so you don't copy any IDs. Running the script again changes nothing. To change a price, edit `PLANS` in `server/membership.js` and run the script again: it makes a new Price and archives the old one. Restart the server afterwards.
 
-Pay with the test card `4242 4242 4242 4242`, any future date and any CVC. Without a key, sign-up shows a message asking people to call Headquarters. No publishable key is needed, because payment happens on Stripe's own Checkout page.
+Pay with the test card `4242 4242 4242 4242`, any future date and any CVC. Without a key, sign-up still works, and members are told to pay at their dojo, where an admin records the payment. No publishable key is needed, because payment happens on Stripe's own Checkout page.
 
-After paying, Stripe sends the member to `/signup/complete`, and the server checks the payment with Stripe before activating the account. Members who close the page early can use "Already paid? Check again" on their account page. An admin can also mark a fee paid in person.
+After paying, Stripe sends the member to `/signup/complete`, and the server checks the payment with Stripe before recording the membership. Each Stripe payment is recorded only once. Members who close the page early can use "Already paid? Check again" on their account page.
 
 ### Content and data
 
@@ -158,10 +170,12 @@ Accounts, attendance and enquiries are saved in `storage/enquiries.db`, which is
 | `POST` | `/api/auth/login` | Anyone | Log in as `student`, `instructor` or `admin` | `FP-1` |
 | `POST` | `/api/auth/logout` | Logged in | Log out | `FP-1` |
 | `GET` | `/api/auth/me` | Anyone | The logged-in user, or `null` | `FP-1` |
-| `POST` | `/api/auth/signup` | Anyone | Create a member account and open Stripe Checkout | `FP-2`, `FP-6` |
-| `POST` | `/api/payments/checkout`, `/api/payments/confirm` | Member | Pay, or confirm payment of, the registration fee | `FP-6` |
+| `POST` | `/api/auth/signup` | Anyone | Create a free student account. With `membership: true`, also opens Stripe Checkout for membership | `FP-2`, `FP-6` |
+| `GET` | `/api/me/membership` | Student | Whether they are a member, until when, what their next payment would buy, and their payment history | `FP-2` |
+| `POST` | `/api/payments/checkout`, `/api/payments/confirm` | Student | Pay for membership ($60 joining or $48 renewal), or confirm a payment and record the membership | `FP-2`, `FP-6` |
+| `POST` | `/api/admin/users/:id/membership` | Admin | Record a membership paid at a dojo | `FP-2` |
 | `PATCH` | `/api/me` | Logged in | Edit own name, phone and (members) Principal Dojo | `FP-16` |
-| `GET` | `/api/instructor/members` | Instructor | Active members at the instructor's dojo | `FP-15` |
+| `GET` | `/api/instructor/members` | Instructor | Active students at the instructor's dojo, with whether each is a paid member | `FP-15` |
 | `GET` | `/api/instructor/classes` | Staff | The day's classes at the instructor's centre | `FP-7` |
 | `PUT` | `/api/sessions/:id/attendance` | Staff | Mark attendance for a session. The reply lists students the save made eligible | `FP-7`, `FP-11` |
 | `GET` | `/api/instructor/attendance-rates` | Staff | Each active member's attendance rate over the last 8 weeks; under 50% is flagged as declining. Instructors get their own dojo; admins can pass `?centreId=` | `FP-15` |

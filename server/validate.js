@@ -65,8 +65,9 @@ export function validateSignup(body = {}, dojoNames) {
   checkPhone(values.phone, errors, true);
   checkNewPassword(body.password, errors);
   if (!dojoNames.has(values.dojo)) errors.dojo = 'Choose the dojo where you will train.';
-  if (body.terms !== true) errors.terms = 'Tick the box to accept the membership terms.';
-  return { errors, values: { ...values, password: body.password } };
+  if (body.terms !== true) errors.terms = 'Tick the box to accept the terms.';
+  // Optional: also buy membership straight after creating the free account.
+  return { errors, values: { ...values, password: body.password, membership: body.membership === true } };
 }
 
 export function validateProfile(body = {}, dojoNames, { requireDojo }) {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ROLE_LABEL, STATUS_LABEL, api, useAuth } from '../auth.jsx';
 import { Field, Notice, fieldProps, focusFirstError } from '../forms.jsx';
+import { formatDay } from '../Membership.jsx';
 import { useApi } from '../useApi.jsx';
 import { LoginForm } from './Login.jsx';
 
@@ -43,19 +44,26 @@ function PersonRow({ person, ranks, onChanged }) {
       </td>
       <td>
         {person.role === 'admin' && STATUS_LABEL[person.status]}
-        {person.role !== 'admin' && person.status === 'pending_payment' && (
-          <>
-            {STATUS_LABEL.pending_payment}
-            <button type="button" className="link-button cell-action" onClick={() => change({}, `/admin/users/${person.id}/mark-paid`, 'POST')}>
-              Mark as paid at dojo
-            </button>
-          </>
-        )}
-        {person.role !== 'admin' && person.status !== 'pending_payment' && (
+        {person.role !== 'admin' && (
           <select aria-label={`Status for ${person.name}`} value={person.status} onChange={(e) => change({ status: e.target.value })}>
             <option value="active">Active</option>
             <option value="inactive">Switched off</option>
           </select>
+        )}
+      </td>
+      <td>
+        {/* FP-2: paid membership. A payment taken at the dojo is recorded here: $60 the first time, then $48. */}
+        {person.role !== 'student' ? '—' : (
+          <>
+            {person.is_member ? `Until ${formatDay(person.member_until)}` : 'Not a member'}
+            <button
+              type="button"
+              className="link-button cell-action"
+              onClick={() => change({}, `/admin/users/${person.id}/membership`, 'POST')}
+            >
+              {person.is_member ? 'Record renewal paid at dojo' : 'Record membership paid at dojo'}
+            </button>
+          </>
         )}
       </td>
     </tr>
@@ -103,7 +111,7 @@ function PeopleTab() {
         <div className="table-scroll" role="region" aria-label="Accounts" tabIndex={0}>
           <table className="timetable data-table">
             <thead>
-              <tr>{['Name', 'Account', 'Dojo', 'Rank', 'Status'].map((h) => <th key={h} scope="col">{h}</th>)}</tr>
+              <tr>{['Name', 'Account', 'Dojo', 'Rank', 'Status', 'Membership'].map((h) => <th key={h} scope="col">{h}</th>)}</tr>
             </thead>
             <tbody>
               {shown.map((u) => <PersonRow key={u.id} person={u} ranks={state.ranks} onChanged={replace} />)}
@@ -265,7 +273,7 @@ export default function AdminPage() {
           {user !== undefined && !isAdmin && (
             <>
               <h1 className="page-title">Admin log in</h1>
-              {user && <Notice>You are logged in as {user.role === 'instructor' ? 'an instructor' : 'a member'}. Log in with an admin account to continue.</Notice>}
+              {user && <Notice>You are logged in as {user.role === 'instructor' ? 'an instructor' : 'a student'}. Log in with an admin account to continue.</Notice>}
               <LoginForm fixedRole="admin" onLoggedIn={setUser} />
             </>
           )}

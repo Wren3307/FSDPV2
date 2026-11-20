@@ -147,6 +147,21 @@ export function seedDatabase(connection, now = today()) {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       USERS.map((user) => [...user, demoHash]),
     );
+    // Paid memberships. Most students joined last year and renewed for this year. Ben (5) joined last
+    // year and hasn't renewed, so he is not a member now; Ethan (8) and Kenji Mori (14) have free
+    // accounts and have never been members.
+    const year = Number(now.slice(0, 4));
+    const memberships = [];
+    for (const [id, , , role] of USERS) {
+      if (role !== 'student' || id === 8 || id === 14) continue;
+      memberships.push([id, 'joining', `${year - 1}-03-01`, `${year - 1}-12-31`, 6000, 'dojo']);
+      if (id !== 5) memberships.push([id, 'renewal', `${year}-01-01`, `${year}-12-31`, 4800, 'dojo']);
+    }
+    run(
+      `INSERT INTO memberships (user_id, kind, starts_on, ends_on, amount_cents, paid_via, recorded_by)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      memberships,
+    );
     run(
       'INSERT INTO rank_history (student_id, rank_id, awarded_on) VALUES (?, ?, ?)',
       RANK_HISTORY.map(([student, rank, daysAgo]) => [student, rank, addDays(now, -daysAgo)]),

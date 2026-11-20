@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { ROLE_LABEL, STATUS_LABEL, api, useAuth } from '../auth.jsx';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { ROLE_LABEL, api, useAuth } from '../auth.jsx';
+import { MembershipBanner, MembershipPanel, formatDay, useMembership } from '../Membership.jsx';
 import { HqTimetable } from '../Classes.jsx';
 import { Field, Notice, fieldProps, focusFirstError } from '../forms.jsx';
 import { GradingBanner, GradingTab } from '../GradingProgress.jsx';
@@ -15,46 +16,6 @@ const SLOT_LABEL = { adult: 'Adults', children: 'Children', mixed: 'Mixed' };
 const formatDate = (sqlDate) => (sqlDate
   ? new Date(`${sqlDate.replace(' ', 'T')}Z`).toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' })
   : '');
-
-function PaymentBanner() {
-  const { setUser } = useAuth();
-  const [params] = useSearchParams();
-  const [msg, setMsg] = useState(params.get('payment') === 'cancelled'
-    ? { tone: 'error', text: 'Your payment was cancelled, so your membership is not active yet.' }
-    : null);
-  const [busy, setBusy] = useState('');
-
-  async function pay() {
-    setBusy('pay');
-    const { ok, data } = await api('/payments/checkout', { method: 'POST', body: {} });
-    if (ok) window.location.assign(data.checkoutUrl);
-    else { setBusy(''); setMsg({ tone: 'error', text: data.error }); }
-  }
-
-  async function check() {
-    setBusy('check');
-    const { ok, data } = await api('/payments/confirm', { method: 'POST', body: {} });
-    setBusy('');
-    if (ok) setUser(data.user);
-    else setMsg({ tone: 'error', text: data.error });
-  }
-
-  return (
-    <div className="payment-banner">
-      <div>
-        <h2 className="banner-title">Pay your $60 registration to activate your membership</h2>
-        <p>Your class times unlock once Stripe confirms your payment.</p>
-        {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
-      </div>
-      <div className="banner-actions">
-        <button type="button" className="button" onClick={pay} disabled={!!busy}>{busy === 'pay' ? 'Opening payment' : 'Pay $60 now'}</button>
-        <button type="button" className="link-button" onClick={check} disabled={!!busy}>
-          {busy === 'check' ? 'Checking' : 'Already paid? Check again'}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function ProfileForm({ user, dojoNames }) {
   const { setUser } = useAuth();
@@ -133,19 +94,22 @@ function PasswordForm() {
   );
 }
 
-function ProfileTab({ user, dojoNames }) {
+function ProfileTab({ user, dojoNames, membership, reloadMembership }) {
   return (
     <div className="account-grid">
       <dl className="facts panel">
         <div><dt>Email</dt><dd>{user.email}</dd></div>
         <div><dt>Account</dt><dd>{ROLE_LABEL[user.role]}</dd></div>
         <div><dt>Rank</dt><dd>{user.rank}</dd></div>
-        {user.role === 'student' && <div><dt>Membership</dt><dd>{STATUS_LABEL[user.status]}</dd></div>}
+        {user.role === 'student' && (
+          <div><dt>Membership</dt><dd>{user.is_member ? `Member until ${formatDay(user.member_until)}` : 'Not a member'}</dd></div>
+        )}
         {user.role === 'student' && <div><dt>Principal Dojo</dt><dd>{user.dojo}</dd></div>}
         {user.role === 'instructor' && <div><dt>Teaches at</dt><dd>{user.dojo ?? 'Not set'}</dd></div>}
-        <div><dt>{user.paid_at ? 'Member since' : 'Account created'}</dt><dd>{formatDate(user.paid_at ?? user.created_at)}</dd></div>
+        <div><dt>Account created</dt><dd>{formatDate(user.created_at)}</dd></div>
       </dl>
       <div className="stack">
+        {user.role === 'student' && <MembershipPanel membership={membership} reload={reloadMembership} />}
         <ProfileForm user={user} dojoNames={dojoNames} />
         <PasswordForm />
       </div>
@@ -157,7 +121,6 @@ function MyClassesTab({ user, dojos }) {
   const timetable = useApi('/api/timetable');
   const dojo = dojos.find((d) => d.name === user.dojo);
 
-  if (user.status !== 'active') return <p className="empty">Your class times appear here once your registration fee is paid.</p>;
   if (!dojo) return <p className="empty">Choose your Principal Dojo on the Profile tab to see its classes.</p>;
   if (dojo.isHq) return timetable.data ? <HqTimetable data={timetable.data} /> : null;
 
@@ -202,15 +165,16 @@ function MyStudentsTab() {
         <Link className="button button-quiet button-small" to="/eligibility">Grading eligibility</Link>
       </p>
       <p className="result-count" role="status">
-        {shown.length === 1 ? '1 active member' : `${shown.length} active members`} at {dojo}
+        {shown.length === 1 ? '1 student' : `${shown.length} students`} at {dojo}
+        {' · '}{shown.filter((m) => m.is_member).length} paid members
       </p>
       {shown.length === 0 ? (
-        <p className="empty">No active members have chosen this dojo as their Principal Dojo yet.</p>
+        <p className="empty">No students have chosen this dojo as their Principal Dojo yet.</p>
       ) : (
         <div className="table-scroll" role="region" aria-label="Your students" tabIndex={0}>
           <table className="timetable data-table">
             <thead>
-              <tr>{['Name', 'Rank', 'Dojo', 'Phone', 'Email', 'Member since'].map((h) => <th key={h} scope="col">{h}</th>)}</tr>
+              <tr>{['Name', 'Rank', 'Dojo', 'Phone', 'Email', 'Membership'].map((h) => <th key={h} scope="col">{h}</th>)}</tr>
             </thead>
             <tbody>
               {shown.map((m) => (
@@ -220,7 +184,7 @@ function MyStudentsTab() {
                   <td>{m.dojo}</td>
                   <td>{m.phone && <a href={`tel:${m.phone.replace(/\s/g, '')}`}>{m.phone}</a>}</td>
                   <td><a href={`mailto:${m.email}`}>{m.email}</a></td>
-                  <td>{formatDate(m.paid_at)}</td>
+                  <td>{m.is_member ? `Member until ${formatDay(m.member_until)}` : 'Not a member'}</td>
                 </tr>
               ))}
             </tbody>
@@ -236,6 +200,10 @@ export default function Account() {
   const navigate = useNavigate();
   const dojos = useApi('/api/dojos');
   const [tab, setTab] = useState('profile');
+  // FP-2: members' paid membership. Reloads whenever the account's membership end date changes.
+  const [membership, reloadMembership] = useMembership(user?.role === 'student', user?.member_until);
+  // Set by the sign-up page when membership was ticked but online payment couldn't start.
+  const signupNotice = useLocation().state?.notice;
 
   if (user === undefined) return <PageShell narrow><p>Loading your account&hellip;</p></PageShell>;
   if (!user || user.role === 'admin') return <Navigate to="/login" replace />;
@@ -271,7 +239,8 @@ export default function Account() {
         </button>
       </div>
 
-      {user.status === 'pending_payment' && <PaymentBanner />}
+      {signupNotice && <Notice tone="ok">{signupNotice}</Notice>}
+      {user.role === 'student' && <MembershipBanner membership={membership} reload={reloadMembership} />}
       {user.role === 'student' && <GradingBanner onShowProgress={() => setTab('grading')} />}
 
       <div className="tabs" role="group" aria-label="Account sections">
@@ -282,7 +251,7 @@ export default function Account() {
         ))}
       </div>
 
-      {tab === 'profile' && <ProfileTab user={user} dojoNames={dojoNames} />}
+      {tab === 'profile' && <ProfileTab user={user} dojoNames={dojoNames} membership={membership} reloadMembership={reloadMembership} />}
       {tab === 'classes' && <MyClassesTab user={user} dojos={allDojos} />}
       {tab === 'students' && <MyStudentsTab />}
       {tab === 'grading' && <GradingTab user={user} />}

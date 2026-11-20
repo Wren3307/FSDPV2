@@ -81,7 +81,7 @@ export function SiteFooter() {
           </p>
           <h3 className="footer-subhead">Members</h3>
           <p>
-            <Link to="/login">Member and instructor log in</Link><br />
+            <Link to="/login">Student and instructor log in</Link><br />
             <Link to="/signup">Become a member</Link>
           </p>
         </div>

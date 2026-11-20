@@ -11,14 +11,19 @@ const paidSessions = new Set();
 const fakePayments = {
   isTestMode: true,
   count: 0,
-  async createCheckout(user) {
+  kinds: new Map(),
+  async createCheckout(user, kind) {
     this.count += 1;
-    return { id: `cs_test_${user.id}_${this.count}`, url: `https://checkout.stripe.test/${user.id}` };
+    const id = `cs_test_${user.id}_${this.count}`;
+    this.kinds.set(id, kind);
+    return { id, url: `https://checkout.stripe.test/${user.id}` };
   },
-  async isPaid(sessionId, userId) {
-    return paidSessions.has(sessionId) && sessionId.startsWith(`cs_test_${userId}_`);
+  async paidMembership(sessionId, userId) {
+    const ok = paidSessions.has(sessionId) && sessionId.startsWith(`cs_test_${userId}_`);
+    return ok ? { kind: this.kinds.get(sessionId), amountCents: null } : null;
   },
 };
+const thisYear = new Date().getFullYear();
 
 let server, base, db;
 
@@ -75,35 +80,58 @@ test('refuses form posts that are not JSON', async () => {
   assert.equal(res.status, 415);
 });
 
-test('member signs up, pays, and only then becomes active', async () => {
+test('sign-up is free: the account is active straight away, with no membership', async () => {
+  const free = client();
+  const res = await signup(free, { email: 'free@example.com' });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.checkoutUrl, undefined);
+  assert.equal(res.body.user.status, 'active');
+  assert.equal(res.body.user.is_member, false);
+  assert.equal(res.body.user.member_until, null);
+
+  const membership = (await free('GET', '/me/membership')).body;
+  assert.equal(membership.isMember, false);
+  assert.equal(membership.next.kind, 'joining');
+  assert.equal(membership.next.amountCents, 6000);
+  assert.equal(membership.next.endsOn, `${thisYear}-12-31`);
+});
+
+test('ticking membership at sign-up opens payment, and the paid membership is recorded once', async () => {
   const mei = client();
-  const res = await signup(mei);
+  const res = await signup(mei, { membership: true });
   assert.equal(res.status, 201);
   assert.match(res.body.checkoutUrl, /^https:\/\/checkout\.stripe\.test\//);
-
-  let me = await mei('GET', '/auth/me');
-  assert.equal(me.body.user.status, 'pending_payment');
+  assert.equal(res.body.user.status, 'active');
+  assert.equal(res.body.user.is_member, false); // not until Stripe confirms the payment
 
   const unpaid = await mei('POST', '/payments/confirm', {});
   assert.equal(unpaid.status, 402);
 
-  paidSessions.add(`cs_test_${me.body.user.id}_${fakePayments.count}`);
+  const sessionId = `cs_test_${res.body.user.id}_${fakePayments.count}`;
+  paidSessions.add(sessionId);
   const paid = await mei('POST', '/payments/confirm', {});
   assert.equal(paid.status, 200);
-  assert.equal(paid.body.user.status, 'active');
+  assert.equal(paid.body.user.is_member, true);
+  assert.equal(paid.body.user.member_until, `${thisYear}-12-31`);
 
-  const again = await mei('POST', '/payments/confirm', {});
-  assert.equal(again.status, 409);
+  // Confirming the same payment again doesn't add another year.
+  assert.equal((await mei('POST', '/payments/confirm', { sessionId })).status, 200);
+  const membership = (await mei('GET', '/me/membership')).body;
+  assert.equal(membership.history.length, 1);
+  const [first] = membership.history;
+  assert.deepEqual([first.kind, first.amountCents, first.paidVia], ['joining', 6000, 'stripe']);
+  // The next payment is a $48 renewal for next year.
+  assert.equal(membership.next.kind, 'renewal');
+  assert.equal(membership.next.amountCents, 4800);
+  assert.equal(membership.next.endsOn, `${thisYear + 1}-12-31`);
 });
 
-test("a payment for another member's account does not activate yours", async () => {
+test("a payment for another member's account does not make you a member", async () => {
   const other = client();
-  await signup(other, { email: 'other@example.com' });
-  const { body } = await other('GET', '/auth/me');
-  const res = await other('POST', '/payments/confirm', { sessionId: 'cs_test_1_1' });
+  await signup(other, { email: 'other@example.com', membership: true });
+  const res = await other('POST', '/payments/confirm', { sessionId: [...paidSessions][0] });
   assert.equal(res.status, 402);
-  assert.equal((await other('GET', '/auth/me')).body.user.status, 'pending_payment');
-  assert.ok(body.user.id);
+  assert.equal((await other('GET', '/auth/me')).body.user.is_member, false);
 });
 
 test('duplicate emails and weak passwords are refused at sign-up', async () => {
@@ -147,8 +175,10 @@ test('only the admin can create instructors, who then see members at their dojo'
   await robin('POST', '/auth/login', { email: 'robin@example.com', password: 'instructor-pass-1', role: 'instructor' });
   const { body } = await robin('GET', '/instructor/members');
   assert.equal(body.dojo, DOJO);
-  // Mei has paid; the other sign-up has not, so only Mei is listed.
-  assert.deepEqual(body.members.map((m) => m.email), ['mei@example.com']);
+  // Sign-up is free, so every active account at the dojo is listed, member or not.
+  assert.deepEqual(body.members.map((m) => m.email).sort(), ['free@example.com', 'mei@example.com', 'other@example.com']);
+  assert.equal(body.members.find((m) => m.email === 'mei@example.com').is_member, true);
+  assert.equal(body.members.find((m) => m.email === 'free@example.com').is_member, false);
 });
 
 test('admin can change a rank, and switching an account off logs it out', async () => {
@@ -166,6 +196,30 @@ test('admin can change a rank, and switching an account off logs it out', async 
   assert.equal((await meiBrowser('GET', '/auth/me')).body.user, null);
   const blocked = await meiBrowser('POST', '/auth/login', { email: 'mei@example.com', password: 'correct-horse-1', role: 'student' });
   assert.equal(blocked.status, 403);
+});
+
+test('only the admin can record a membership paid at the dojo: $60, then a $48 renewal, then no further', async () => {
+  const admin = client();
+  await admin('POST', '/auth/login', { email: 'admin@example.com', password: 'admin-password-1', role: 'admin' });
+  const { body } = await admin('GET', '/admin/users');
+  const other = body.users.find((u) => u.email === 'other@example.com');
+  const robin = body.users.find((u) => u.email === 'robin@example.com');
+
+  const first = await admin('POST', `/admin/users/${other.id}/membership`, {});
+  assert.equal(first.status, 200);
+  assert.equal(first.body.user.member_until, `${thisYear}-12-31`);
+
+  const renewal = await admin('POST', `/admin/users/${other.id}/membership`, {});
+  assert.equal(renewal.body.user.member_until, `${thisYear + 1}-12-31`);
+  const rows = db.connection.prepare('SELECT kind, amount_cents AS a, paid_via AS via FROM memberships WHERE user_id = ? ORDER BY id').all(other.id);
+  assert.deepEqual(rows.map((m) => [m.kind, m.a, m.via]), [['joining', 6000, 'dojo'], ['renewal', 4800, 'dojo']]);
+
+  assert.equal((await admin('POST', `/admin/users/${other.id}/membership`, {})).status, 409); // already paid for next year
+  assert.equal((await admin('POST', `/admin/users/${robin.id}/membership`, {})).status, 400); // instructors are not members
+
+  const free = client();
+  await free('POST', '/auth/login', { email: 'free@example.com', password: 'correct-horse-1', role: 'student' });
+  assert.equal((await free('POST', `/admin/users/${other.id}/membership`, {})).status, 403);
 });
 
 test('members can edit their own profile and password', async () => {

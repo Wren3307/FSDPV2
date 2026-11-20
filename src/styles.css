@@ -410,6 +410,7 @@ cite { display: block; margin-top: 0.5rem; font-style: normal; font-size: 0.95re
 .banner-title { font: 800 1.6rem/1.1 var(--display); text-transform: uppercase; color: var(--navy); margin: 0 0 0.35rem; }
 .payment-banner .notice { margin-top: 0.75rem; }
 .banner-actions { display: grid; gap: 0.6rem; justify-items: start; }
+.membership-history { margin: 0.75rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; font-size: 0.925rem; color: var(--ink-soft); }
 /* Grading progress on a member's account (FP-11). Blue is the palette's colour for grading readiness. */
 .notification-banner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem 2rem; background: var(--white); border-left: 6px solid var(--blue); border-radius: 8px; padding: 1.25rem 1.5rem; margin-block: 1rem 1.75rem; }
 .grading-head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }

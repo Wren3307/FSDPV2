@@ -16,8 +16,10 @@ const CREATE_TABLES = `
 
   -- Students, instructors and admins all live here. A student's home centre is users.centre_id,
   -- and an instructor's is the centre they teach at.
-  -- membership_status: 'pending_payment' until the $60 registration is paid (Stripe or at the dojo),
-  -- then 'active'. 'inactive' means an admin has switched the account off, so it cannot log in.
+  -- membership_status is the ACCOUNT's status: 'active', or 'inactive' when an admin has switched
+  -- the account off so it cannot log in. Sign-up is free, so new accounts start 'active'.
+  -- ('pending_payment' is from before free sign-up; openDatabase turns it into 'active'.)
+  -- Whether someone is a paying member is in the memberships table, not here.
   CREATE TABLE IF NOT EXISTS users (
     id                INTEGER PRIMARY KEY,
     name              TEXT NOT NULL,
@@ -126,6 +128,26 @@ const CREATE_TABLES = `
     read_at    TEXT
   );
 
+  -- Paid memberships. A user is a member on any day from starts_on to ends_on of one of their rows;
+  -- memberships run to 31 December of the year paid for. Member offers and prices check this table.
+  --   kind 'joining': the first membership, $60, which includes the one-time registration
+  --   kind 'renewal': each later year, $48
+  -- reference is the Stripe Checkout session id, so one payment can never be recorded twice.
+  -- It is NULL for a payment taken at the dojo, which records who took it in recorded_by.
+  CREATE TABLE IF NOT EXISTS memberships (
+    id           INTEGER PRIMARY KEY,
+    user_id      INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    kind         TEXT NOT NULL CHECK (kind IN ('joining', 'renewal')),
+    starts_on    TEXT NOT NULL,
+    ends_on      TEXT NOT NULL,
+    amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
+    paid_via     TEXT NOT NULL CHECK (paid_via IN ('stripe', 'dojo')),
+    reference    TEXT UNIQUE,
+    recorded_by  INTEGER REFERENCES users (id) ON DELETE SET NULL,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    CHECK (starts_on <= ends_on)
+  );
+
   -- Each student's current rank: their latest rank_history row (ties broken by the newest id).
   -- Postgres used DISTINCT ON for this; SQLite numbers each student's rows and keeps row 1.
   CREATE VIEW IF NOT EXISTS current_ranks AS
@@ -143,12 +165,14 @@ const CREATE_TABLES = `
   CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions (date);
   CREATE INDEX IF NOT EXISTS idx_enrolments_class_id ON enrolments (class_id);
   CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id);
+  CREATE INDEX IF NOT EXISTS idx_memberships_user_id ON memberships (user_id);
 `;
 
 // Children first, so no foreign key is left pointing at a dropped table.
 const DROP_TABLES = `
   DROP VIEW  IF EXISTS current_ranks;
   DROP TABLE IF EXISTS notifications;
+  DROP TABLE IF EXISTS memberships;
   DROP TABLE IF EXISTS attendance;
   DROP TABLE IF EXISTS sessions;
   DROP TABLE IF EXISTS enrolments;

@@ -9,15 +9,41 @@ export function defaultDatabasePath() {
   return process.env.DATABASE_PATH ?? fileURLToPath(new URL('../storage/enquiries.db', import.meta.url));
 }
 
-// The account fields the API sends to the browser. `dojo` is the user's centre name and `status` their
-// membership status, so the site's pages don't need to know the table layout.
+// The account fields the API sends to the browser. `dojo` is the user's centre name and `status` the
+// account's status (active or switched off), so the site's pages don't need to know the table layout.
+// `is_member` and `member_until` come from the memberships table: whether the user has a paid
+// membership today (member offers and prices check this), and the last day it covers.
 const USER_SELECT = `
   SELECT u.id, u.role, u.name, u.email, u.phone, u.centre_id, c.name AS dojo,
          COALESCE(cr.rank_name, 'Ungraded') AS rank, u.membership_status AS status,
-         u.paid_at, u.created_at
+         u.created_at,
+         CASE WHEN u.role = 'student' AND ms.until >= date('now', 'localtime') THEN ms.until END AS member_until,
+         CASE WHEN u.role = 'student' AND ms.until >= date('now', 'localtime') THEN 1 ELSE 0 END AS is_member
     FROM users u
+    LEFT JOIN (SELECT user_id, MAX(ends_on) AS until FROM memberships GROUP BY user_id) ms ON ms.user_id = u.id
     LEFT JOIN centres c ON c.id = u.centre_id
     LEFT JOIN current_ranks cr ON cr.student_id = u.id`;
+
+// SQLite has no booleans; send a real true/false to the browser.
+const toUser = (row) => (row ? { ...row, is_member: row.is_member === 1 } : row);
+
+/**
+ * Databases from before free sign-up: an account waiting to pay the registration becomes an ordinary
+ * free account, and anyone who paid it gets the membership it bought (to 31 December of the year they
+ * paid). Safe to run on every start: it only touches accounts that haven't been converted yet.
+ */
+function migrateToFreeSignup(db) {
+  db.exec(`
+    INSERT INTO memberships (user_id, kind, starts_on, ends_on, amount_cents, paid_via, reference)
+    SELECT u.id, 'joining', date(u.paid_at), strftime('%Y', u.paid_at) || '-12-31', 6000,
+           CASE WHEN u.checkout_session LIKE 'cs_%' THEN 'stripe' ELSE 'dojo' END,
+           CASE WHEN u.checkout_session LIKE 'cs_%' THEN u.checkout_session END
+      FROM users u
+     WHERE u.role = 'student' AND u.paid_at IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id);
+    UPDATE users SET membership_status = 'active' WHERE membership_status = 'pending_payment';
+  `);
+}
 
 export function openDatabase(path) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
@@ -38,6 +64,8 @@ export function openDatabase(path) {
   `);
   // Centres, users, classes, sessions, attendance and the rest (see schema.js).
   createSchema(db);
+  // A much older users table can't be converted; the server reports that through schemaProblem().
+  if (!checkSchema(db)) migrateToFreeSignup(db);
 
   const q = {
     insertEnquiry: db.prepare(`
@@ -58,9 +86,6 @@ export function openDatabase(path) {
     hashById: db.prepare('SELECT password_hash FROM users WHERE id = ?'),
     checkoutById: db.prepare('SELECT checkout_session FROM users WHERE id = ?'),
     setCheckout: db.prepare('UPDATE users SET checkout_session = ? WHERE id = ?'),
-    markPaid: db.prepare(`
-      UPDATE users SET membership_status = 'active', paid_at = datetime('now'), joined_on = date('now'), checkout_session = ?
-       WHERE id = ? AND membership_status = 'pending_payment'`),
     updateProfile: db.prepare('UPDATE users SET name = :name, phone = :phone, centre_id = :centre_id WHERE id = :id'),
     setPassword: db.prepare('UPDATE users SET password_hash = ? WHERE id = ?'),
     setStatus: db.prepare('UPDATE users SET membership_status = ? WHERE id = ?'),
@@ -108,13 +133,12 @@ export function openDatabase(path) {
         throw err;
       }
     },
-    getUser: (id) => q.userById.get(id),
+    getUser: (id) => toUser(q.userById.get(id)),
     getAuthByEmail: (email) => q.authByEmail.get(email),
     hasUserWithEmail: (email) => Boolean(q.userByEmail.get(email)),
     getPasswordHash: (id) => q.hashById.get(id)?.password_hash,
     getCheckoutSession: (id) => q.checkoutById.get(id)?.checkout_session ?? null,
     setCheckoutSession: (id, sessionId) => q.setCheckout.run(sessionId, id),
-    markPaid: (id, sessionId) => q.markPaid.run(sessionId, id).changes > 0,
     updateProfile: (id, { name, phone, centreId }) => q.updateProfile.run({ id, name, phone, centre_id: centreId }),
     setPassword: (id, hash) => q.setPassword.run(hash, id),
     setCentre: (id, centreId) => q.setCentre.run(centreId, id),
@@ -123,7 +147,7 @@ export function openDatabase(path) {
       if (status === 'inactive') q.deleteUserSessions.run(id);
       return changed;
     },
-    listUsers: () => q.listUsers.all(),
+    listUsers: () => q.listUsers.all().map(toUser),
 
     listRanks: () => q.listRanks.all().map((r) => r.name),
     /** Records a promotion (a new rank_history row dated today). Returns false for an unknown rank. */
@@ -135,7 +159,7 @@ export function openDatabase(path) {
     },
 
     /** Active students whose home centre is this instructor's centre. */
-    studentsForInstructor: (instructor) => (instructor.centre_id ? q.studentsAtCentre.all(instructor.centre_id) : []),
+    studentsForInstructor: (instructor) => (instructor.centre_id ? q.studentsAtCentre.all(instructor.centre_id).map(toUser) : []),
 
     createSession: (tokenHash, userId, expiresAt) => {
       q.deleteExpired.run(Date.now());
@@ -143,7 +167,7 @@ export function openDatabase(path) {
     },
     userForSession: (tokenHash) => {
       const row = q.sessionUserId.get(tokenHash, Date.now());
-      return row ? q.userById.get(row.user_id) : null;
+      return row ? toUser(q.userById.get(row.user_id)) : null;
     },
     deleteSession: (tokenHash) => q.deleteSession.run(tokenHash),
     deleteUserSessions: (userId) => q.deleteUserSessions.run(userId),

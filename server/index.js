@@ -39,14 +39,16 @@ if (await ensureAdmin(db, { email: process.env.ADMIN_EMAIL, password: process.en
 }
 
 const payments = createPayments({ secretKey: process.env.STRIPE_SECRET_KEY, publicUrl });
-if (!payments) console.warn('STRIPE_SECRET_KEY is not set, so member sign-up is switched off.');
+if (!payments) console.warn('STRIPE_SECRET_KEY is not set: sign-up still works, but membership can only be paid at a dojo.');
 else {
-  if (!payments.isTestMode) console.warn('Stripe is using a LIVE key: sign-ups will take real payments.');
-  // Check the setup now, so problems show when the server starts rather than at someone's first sign-up.
-  payments.registrationPrice().then(
-    (price) => console.log(`Stripe ready: registration is ${price.currency.toUpperCase()} ${(price.unit_amount / 100).toFixed(2)}.`),
-    (err) => console.warn(`Stripe is not ready: ${err.message}`),
-  );
+  if (!payments.isTestMode) console.warn('Stripe is using a LIVE key: membership purchases will take real payments.');
+  // Check the setup now, so problems show when the server starts rather than at someone's first payment.
+  for (const kind of ['joining', 'renewal']) {
+    payments.priceFor(kind).then(
+      (price) => console.log(`Stripe ready: ${kind} membership is ${price.currency.toUpperCase()} ${(price.unit_amount / 100).toFixed(2)}.`),
+      (err) => console.warn(`Stripe is not ready for ${kind} membership: ${err.message}`),
+    );
+  }
 }
 
 const app = express();

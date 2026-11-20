@@ -5,7 +5,7 @@ import { Field, Notice, fieldProps, focusFirstError } from '../forms.jsx';
 import { PageShell } from '../Layout.jsx';
 import { useApi } from '../useApi.jsx';
 
-const EMPTY = { name: '', email: '', password: '', phone: '', dojo: '', terms: false };
+const EMPTY = { name: '', email: '', password: '', phone: '', dojo: '', terms: false, membership: false };
 
 export default function Signup() {
   const { user, refresh } = useAuth();
@@ -34,27 +34,32 @@ export default function Signup() {
     setBusy(true);
     setError('');
     const { ok, data } = await api('/auth/signup', { method: 'POST', body: form });
+    if (ok && data.checkoutUrl) {
+      window.location.assign(data.checkoutUrl); // Stripe's payment page for membership
+      return;
+    }
     if (ok) {
-      window.location.assign(data.checkoutUrl); // Stripe's payment page
+      // A free account. If membership was ticked but payment couldn't start, the account page explains.
+      await refresh();
+      navigate('/account', { state: { notice: data.notice } });
       return;
     }
     setBusy(false);
     if (data.errors) {
       setErrors(data.errors);
       focusFirstError(data.errors);
-    } else if (data.account) {
-      await refresh();
-      navigate('/account');
     } else {
       setError(data.error ?? 'Your account could not be created. Try again.');
     }
   }
 
   return (
-    <PageShell title="Become a member" narrow>
+    <PageShell title="Create your free account" narrow>
       <p className="page-lead">
-        Create your account, then pay the one-time $60 registration fee. It covers your current-year
-        membership, membership book and student handbook. Training fees are paid separately at your dojo.
+        Signing up is free. Your account shows your dojo&rsquo;s class times and your grading progress.
+        You can become a member now or later: membership is $60 for your first year (it includes
+        registration, your membership book and student handbook), then $48 a year, and gives you member
+        prices and offers. Training fees are paid separately at your dojo.
       </p>
       <form className="panel" onSubmit={submit} noValidate>
         <Field name="name" label="Full name" error={errors.name}>
@@ -78,14 +83,22 @@ export default function Signup() {
         <div className={errors.terms ? 'field-check has-error' : 'field-check'}>
           <label htmlFor="terms">
             <input {...fieldProps('terms', errors)} type="checkbox" checked={form.terms} onChange={update} />
-            I understand membership is not transferable or refundable, and that I must sign the Deed of Waiver
-            and Indemnity before my first class.
+            I understand I must sign the Deed of Waiver and Indemnity before my first class, and that
+            membership, if I buy it, is not transferable or refundable.
           </label>
           {errors.terms && <p className="field-error" id="terms-error">{errors.terms}</p>}
         </div>
+        <div className="field-check">
+          <label htmlFor="membership">
+            <input id="membership" name="membership" type="checkbox" checked={form.membership} onChange={update} />
+            Also become a member now: $60, valid until 31 December this year.
+          </label>
+        </div>
         {error && <Notice>{error}</Notice>}
-        <button type="submit" className="button" disabled={busy}>{busy ? 'Opening payment' : 'Continue to payment'}</button>
-        <p className="fine-print">You will pay $60 on Stripe&rsquo;s secure page, then come back here.</p>
+        <button type="submit" className="button" disabled={busy}>
+          {busy ? (form.membership ? 'Opening payment' : 'Creating account') : (form.membership ? 'Create account and pay $60' : 'Create free account')}
+        </button>
+        {form.membership && <p className="fine-print">You will pay $60 on Stripe&rsquo;s secure page, then come back here.</p>}
       </form>
       <p className="page-aside">Already a member? <Link to="/login">Log in</Link>.</p>
     </PageShell>

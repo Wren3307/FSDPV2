@@ -1,14 +1,24 @@
-// Creates the registration fee Product and Price in your Stripe account, or reuses them if they exist.
+// Creates the membership Products and Prices in your Stripe account, or reuses them if they exist.
+//   joining: $60 first membership, which includes the one-time registration
+//   renewal: $48 for each later year
 // Run with: npm run stripe:setup
 // Uses STRIPE_SECRET_KEY from .env. Refuses a live key unless you add --live.
 import { fileURLToPath } from 'node:url';
 import Stripe from 'stripe';
-import { REGISTRATION_LOOKUP_KEY } from '../server/payments.js';
+import { PLANS } from '../server/membership.js';
+import { PRICE_LOOKUP_KEYS } from '../server/payments.js';
 
-const AMOUNT_CENTS = 6000;
 const CURRENCY = 'sgd';
-const PRODUCT_NAME = 'Aikido Shinju-Kai registration';
-const PRODUCT_DESCRIPTION = 'One-time fee. Includes current-year membership, membership book and student handbook.';
+const PRODUCTS = {
+  joining: {
+    name: 'Aikido Shinju-Kai membership with registration',
+    description: 'First membership. Includes the one-time registration, membership to 31 December, membership book and student handbook.',
+  },
+  renewal: {
+    name: 'Aikido Shinju-Kai annual membership',
+    description: 'Membership renewal for one calendar year, to 31 December.',
+  },
+};
 
 try {
   process.loadEnvFile(fileURLToPath(new URL('../.env', import.meta.url)));
@@ -28,34 +38,35 @@ if (!isTest && !process.argv.includes('--live')) {
 }
 
 const stripe = new Stripe(key);
-const label = `${CURRENCY.toUpperCase()} ${(AMOUNT_CENTS / 100).toFixed(2)}`;
 
-try {
-  const { data: [existing] } = await stripe.prices.list({ lookup_keys: [REGISTRATION_LOOKUP_KEY], active: true, limit: 1, expand: ['data.product'] });
+async function setUp(kind) {
+  const lookupKey = PRICE_LOOKUP_KEYS[kind];
+  const amount = PLANS[kind].amountCents;
+  const label = `${CURRENCY.toUpperCase()} ${(amount / 100).toFixed(2)}`;
+  const { data: [existing] } = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1, expand: ['data.product'] });
 
-  if (existing && existing.unit_amount === AMOUNT_CENTS && existing.currency === CURRENCY) {
+  if (existing && existing.unit_amount === amount && existing.currency === CURRENCY) {
     console.log(`Already set up: "${existing.product.name}" at ${label} (${existing.id}). Nothing changed.`);
-    process.exit(0);
+    return;
   }
 
-  // Reuse the product if a price already exists for it, so the dashboard keeps one product.
-  const product = existing?.product ?? await stripe.products.create({
-    name: PRODUCT_NAME,
-    description: PRODUCT_DESCRIPTION,
-    metadata: { site: 'aikido-shinju-kai' },
-  });
-
+  // Reuse the product if a price already exists for it, so the dashboard keeps one product per kind.
+  const product = existing?.product ?? await stripe.products.create({ ...PRODUCTS[kind], metadata: { site: 'aikido-shinju-kai', kind } });
   const price = await stripe.prices.create({
     product: product.id,
-    unit_amount: AMOUNT_CENTS,
+    unit_amount: amount,
     currency: CURRENCY,
-    lookup_key: REGISTRATION_LOOKUP_KEY,
+    lookup_key: lookupKey,
     transfer_lookup_key: true, // moves the lookup key off any older price
-    nickname: 'Registration fee',
+    nickname: PLANS[kind].name,
   });
   if (existing) await stripe.prices.update(existing.id, { active: false });
-
   console.log(`${existing ? 'Updated' : 'Created'} "${product.name}" at ${label} (${price.id}) in ${isTest ? 'test' : 'LIVE'} mode.`);
+}
+
+try {
+  await setUp('joining');
+  await setUp('renewal');
 } catch (err) {
   console.error(`Stripe refused the request: ${err.message}`);
   process.exit(1);

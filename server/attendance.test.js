@@ -141,3 +141,29 @@ test('seed keeps the FP-10 test cases intact', () => {
   `).get().n;
   assert.equal(chenExternal, 3); // ...plus 3 external
 });
+
+test('attendance rates cover the instructor\'s own centre and flag students under 50%', async () => {
+  const res = await call('GET', '/instructor/attendance-rates', 2);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.windowDays, 56);
+  assert.equal(body.decliningBelow, 0.5);
+
+  const byId = new Map(body.students.map((s) => [s.studentId, s]));
+  // Only students at centre 1: Hana (11) trains at Cheng San.
+  assert.equal(byId.has(11), false);
+  // Divya (7) missed the last four weeks, so at most half her sessions were attended.
+  assert.ok(byId.get(7).rate <= 0.5);
+  assert.ok(byId.get(7).expected > 0);
+  // Ethan (8) is only in Monday Beginners and Friday Fundamentals; his rate is a fraction.
+  assert.ok(byId.get(8).rate >= 0 && byId.get(8).rate <= 1);
+  for (const s of body.students) assert.equal(s.declining, s.rate !== null && s.rate < 0.5);
+});
+
+test('attendance rates need staff; an admin can pick a centre', async () => {
+  assert.equal((await call('GET', '/instructor/attendance-rates', 4)).status, 403);
+  assert.equal((await call('GET', '/instructor/attendance-rates')).status, 401);
+  const centre2 = await (await call('GET', '/instructor/attendance-rates?centreId=2', 1)).json();
+  assert.deepEqual(centre2.students.map((s) => s.studentId).sort((a, b) => a - b), [11, 12, 14, 15]);
+  assert.equal((await call('GET', '/instructor/attendance-rates?centreId=x', 1)).status, 400);
+});

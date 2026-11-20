@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
-import { api } from './auth.jsx';
+import { api, useAuth } from './auth.jsx';
+
+// The eligibility engine (server/eligibility.js) returns
+//   { studentId, currentRank, nextRank, eligible, reason, checks: [{ rule, required, actual, met }] }
+// The sessions check is the one whose rule starts with "Sessions".
+const sessionsCheck = (result) => result?.checks?.find((c) => c.rule.startsWith('Sessions')) ?? null;
 
 export default function InstructorDashboard() {
+  const { user } = useAuth();
   const [state, setState] = useState({ loading: true, error: '', dojo: '', students: [] });
   const [filter, setFilter] = useState('ALL'); // 'ALL' | 'READY' | 'DECLINING'
 
   useEffect(() => {
     async function loadDashboard() {
-      // 1. Fetch active members at this instructor's dojo (existing FP-15 endpoint)
+      // 1. Active members at this instructor's dojo (FP-15 endpoint)
       const membersRes = await api('/instructor/members');
       if (!membersRes.ok) {
         setState({
@@ -19,30 +25,44 @@ export default function InstructorDashboard() {
         return;
       }
 
-      // 2. Fetch grading eligibility data (existing FP-10 endpoint)
-      const eligRes = await api('/eligibility');
-      const eligList = Array.isArray(eligRes.data)
-        ? eligRes.data
-        : eligRes.data?.students || eligRes.data?.results || [];
+      // 2. Grading eligibility (FP-10), for this instructor's centre only
+      const eligPath = user?.centre_id ? `/eligibility?centreId=${user.centre_id}` : '/eligibility';
+      const eligRes = await api(eligPath);
+      if (!eligRes.ok) {
+        setState({ loading: false, error: eligRes.data?.error || 'Unable to load grading progress', dojo: '', students: [] });
+        return;
+      }
+      const eligById = new Map((eligRes.data ?? []).map((item) => [item.studentId, item]));
 
-      const eligById = new Map(eligList.map((item) => [item.student_id ?? item.id, item]));
+      // 3. Attendance rate over the last eight weeks (retention alert)
+      const ratesRes = await api('/instructor/attendance-rates');
+      if (!ratesRes.ok) {
+        setState({ loading: false, error: ratesRes.data?.error || 'Unable to load attendance rates', dojo: '', students: [] });
+        return;
+      }
+      const rateById = new Map((ratesRes.data?.students ?? []).map((r) => [r.studentId, r]));
 
       const rawMembers = membersRes.data?.members || [];
       const enriched = rawMembers.map((m) => {
-        const elig = eligById.get(m.id) || {};
-        const attended = Number(elig.sessions_attended ?? elig.sessionsAttended ?? elig.attended ?? 0);
-        const required = Number(elig.sessions_required ?? elig.sessionsRequired ?? elig.required ?? 14);
-        const attendancePct = required > 0 ? Math.min(100, Math.round((attended / required) * 100)) : 0;
-        const isGradingReady = Boolean(elig.eligible ?? elig.isEligible ?? attended >= required);
-        const isDeclining = attendancePct < 50;
+        const elig = eligById.get(m.id);
+        const check = sessionsCheck(elig);
+        const attended = check?.actual ?? 0;
+        const required = check?.required ?? null;
+        // Progress towards the next grading's session requirement.
+        const progressPct = required ? Math.min(100, Math.round((attended / required) * 100)) : 0;
+        const rate = rateById.get(m.id);
 
         return {
           ...m,
           sessionsAttended: attended,
           sessionsRequired: required,
-          attendancePct,
-          isGradingReady,
-          isDeclining,
+          progressPct,
+          // null when no sessions were expected of them in the window
+          attendancePct: rate?.rate == null ? null : Math.round(rate.rate * 100),
+          attendanceDetail: rate?.expected ? `${rate.attended} of ${rate.expected} sessions` : 'No sessions yet',
+          isGradingReady: Boolean(elig?.eligible),
+          isDeclining: Boolean(rate?.declining),
+          note: required ? '' : (elig?.reason ?? 'No grading progress yet'),
         };
       });
 
@@ -50,23 +70,25 @@ export default function InstructorDashboard() {
         loading: false,
         error: '',
         dojo: membersRes.data?.dojo || '',
+        weeks: Math.round((ratesRes.data?.windowDays ?? 56) / 7),
         students: enriched,
       });
     }
 
     loadDashboard();
-  }, []);
+  }, [user?.centre_id]);
 
   if (state.loading) return <p style={{ padding: '1rem' }}>Loading progression dashboard&hellip;</p>;
   if (state.error) return <p style={{ padding: '1rem', color: '#C8102E' }}>{state.error}</p>;
 
-  const { dojo, students } = state;
+  const { dojo, students, weeks } = state;
   const totalStudents = students.length;
   const gradingReadyCount = students.filter((s) => s.isGradingReady).length;
   const decliningCount = students.filter((s) => s.isDeclining).length;
-  const avgAttendancePct = totalStudents
-    ? Math.round(students.reduce((sum, s) => sum + s.attendancePct, 0) / totalStudents)
-    : 0;
+  const withRate = students.filter((s) => s.attendancePct !== null);
+  const avgAttendancePct = withRate.length
+    ? Math.round(withRate.reduce((sum, s) => sum + s.attendancePct, 0) / withRate.length)
+    : null;
 
   const filteredStudents = students.filter((s) => {
     if (filter === 'READY') return s.isGradingReady;
@@ -90,7 +112,7 @@ export default function InstructorDashboard() {
           Instructor Progression &amp; Attendance Dashboard {dojo ? `— ${dojo}` : ''}
         </h2>
         <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', opacity: 0.85 }}>
-          Real-time student retention alerts (&lt;50% attendance) and grading readiness overview
+          Retention alerts (under 50% attendance over the last {weeks} weeks) and grading readiness
         </p>
       </div>
 
@@ -114,13 +136,13 @@ export default function InstructorDashboard() {
         </div>
 
         <div style={cardStyle('#C8102E')}>
-          <span style={labelStyle}>Declining (&lt;50%)</span>
+          <span style={labelStyle}>Declining (&lt;50%, {weeks} wks)</span>
           <strong style={{ fontSize: '1.75rem', color: '#C8102E' }}>{decliningCount}</strong>
         </div>
 
         <div style={cardStyle('#1A1A1A')}>
-          <span style={labelStyle}>Avg Attendance</span>
-          <strong style={{ fontSize: '1.75rem', color: '#1A1A1A' }}>{avgAttendancePct}%</strong>
+          <span style={labelStyle}>Avg attendance ({weeks} wks)</span>
+          <strong style={{ fontSize: '1.75rem', color: '#1A1A1A' }}>{avgAttendancePct === null ? '—' : `${avgAttendancePct}%`}</strong>
         </div>
       </div>
 
@@ -136,7 +158,7 @@ export default function InstructorDashboard() {
           onClick={() => setFilter('DECLINING')}
           style={filterBtnStyle(filter === 'DECLINING', '#C8102E')}
         >
-          Declining Flag (&lt;50%) ({decliningCount})
+          Declining Attendance ({decliningCount})
         </button>
       </div>
 
@@ -150,8 +172,8 @@ export default function InstructorDashboard() {
               <tr style={{ backgroundColor: '#1A1A1A', color: '#FFFFFF', textAlign: 'left' }}>
                 <th style={thStyle}>Student Name</th>
                 <th style={thStyle}>Current Rank</th>
-                <th style={thStyle}>Sessions</th>
-                <th style={thStyle}>Attendance Progress</th>
+                <th style={thStyle}>Attendance ({weeks} wks)</th>
+                <th style={thStyle}>Progress to next grading</th>
                 <th style={thStyle}>Status Flag</th>
               </tr>
             </thead>
@@ -164,9 +186,15 @@ export default function InstructorDashboard() {
                   </td>
                   <td style={tdStyle}>{s.rank}</td>
                   <td style={tdStyle}>
-                    {s.sessionsAttended} / {s.sessionsRequired}
+                    <strong style={{ color: s.isDeclining ? '#C8102E' : '#1A1A1A' }}>
+                      {s.attendancePct === null ? '—' : `${s.attendancePct}%`}
+                    </strong>
+                    <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>{s.attendanceDetail}</div>
                   </td>
                   <td style={tdStyle}>
+                    {!s.sessionsRequired ? (
+                      <span style={{ fontSize: '0.8rem', color: '#6B7280' }}>{s.note}</span>
+                    ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <div
                         style={{
@@ -179,23 +207,22 @@ export default function InstructorDashboard() {
                       >
                         <div
                           style={{
-                            width: `${s.attendancePct}%`,
+                            width: `${s.progressPct}%`,
                             height: '100%',
-                            backgroundColor: s.isDeclining ? '#C8102E' : '#1D4ED8',
+                            backgroundColor: '#1D4ED8',
                           }}
                         />
                       </div>
-                      <span>{s.attendancePct}%</span>
+                      <span>{s.sessionsAttended} / {s.sessionsRequired}</span>
                     </div>
+                    )}
                   </td>
                   <td style={tdStyle}>
-                    {s.isDeclining ? (
-                      <span style={badgeStyle('#C8102E')}>Declining Attendance</span>
-                    ) : s.isGradingReady ? (
-                      <span style={badgeStyle('#1D4ED8')}>Grading Ready</span>
-                    ) : (
-                      <span style={badgeStyle('#1A1A1A')}>On Track</span>
-                    )}
+                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      {s.isDeclining && <span style={badgeStyle('#C8102E')}>Declining Attendance</span>}
+                      {s.isGradingReady && <span style={badgeStyle('#1D4ED8')}>Grading Ready</span>}
+                      {!s.isDeclining && !s.isGradingReady && <span style={badgeStyle('#1A1A1A')}>On Track</span>}
+                    </div>
                   </td>
                 </tr>
               ))}

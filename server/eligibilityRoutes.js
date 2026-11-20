@@ -9,12 +9,23 @@ export function createEligibilityRouter(connection) {
   const engine = createEligibilityEngine(connection);
   const staffOnly = [loadUser(connection), requireRole('instructor', 'admin')];
 
-  // One student's result. Students may only see their own; instructors and admins can see anyone's.
+  // Members' records are personal data, so instructors only see members at their own centre.
+  // Admins see every centre.
+  const centreOf = connection.prepare(`SELECT centre_id FROM users WHERE id = ? AND role = 'student'`);
+
+  // One student's result. Students may only see their own; instructors see their own centre's
+  // students; admins can see anyone's.
   router.get('/students/:id/eligibility', loadUser(connection), (req, res) => {
     const studentId = Number(req.params.id);
     if (!Number.isInteger(studentId)) return res.status(400).json({ error: 'id must be a number' });
     if (req.user.role === 'student' && req.user.id !== studentId) {
       return res.status(403).json({ error: 'Students can only see their own eligibility' });
+    }
+    if (req.user.role === 'instructor') {
+      const student = centreOf.get(studentId);
+      if (student && student.centre_id !== req.user.centre_id) {
+        return res.status(403).json({ error: 'That student trains at another centre' });
+      }
     }
 
     const result = engine.check(studentId);
@@ -37,6 +48,11 @@ export function createEligibilityRouter(connection) {
     if (req.query.centreId !== undefined && req.query.centreId !== '') {
       centreId = Number(req.query.centreId);
       if (!Number.isInteger(centreId)) return res.status(400).json({ error: 'centreId must be a number' });
+    }
+    // Instructors always get their own centre, whatever they ask for.
+    if (req.user.role === 'instructor') {
+      if (!req.user.centre_id) return res.json([]);
+      centreId = req.user.centre_id;
     }
 
     const results = studentsAt.all({ centreId }).map((row) => ({
@@ -61,9 +77,13 @@ export function createEligibilityRouter(connection) {
     res.json(allRules.all().map((rule) => ({ ...rule, countsExternal: rule.countsExternal === 1 })));
   });
 
-  // Centre list for the screen's filter.
+  // Centre list for the screen's filter. An instructor's list is just their own centre.
   const allCentres = connection.prepare('SELECT id, name FROM centres ORDER BY name');
-  router.get('/centres', ...staffOnly, (req, res) => res.json(allCentres.all()));
+  const oneCentre = connection.prepare('SELECT id, name FROM centres WHERE id = ?');
+  router.get('/centres', ...staffOnly, (req, res) => {
+    if (req.user.role === 'instructor') return res.json(req.user.centre_id ? oneCentre.all(req.user.centre_id) : []);
+    return res.json(allCentres.all());
+  });
 
   return router;
 }

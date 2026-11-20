@@ -86,10 +86,12 @@ test('explains why when there is no rule to check', async () => {
   assert.match(alice.reason, /no active grading rule/);
 });
 
-test('students see only their own result; staff see anyone\'s', async () => {
+test('students see only their own result; instructors their own centre\'s; admins anyone\'s', async () => {
   assert.equal((await get('/students/4/eligibility', 4)).status, 200);
   assert.equal((await get('/students/5/eligibility', 4)).status, 403);
-  assert.equal((await get('/students/5/eligibility', 3)).status, 200); // instructor at another centre
+  assert.equal((await get('/students/5/eligibility', 2)).status, 200); // instructor at Ben's centre
+  assert.equal((await get('/students/5/eligibility', 3)).status, 403); // instructor at another centre
+  assert.equal((await get('/students/5/eligibility', 1)).status, 200); // admin
   assert.equal((await get('/students/5/eligibility')).status, 401);
   assert.equal((await get('/students/2/eligibility', 1)).status, 404); // an instructor, not a student
 });
@@ -102,6 +104,14 @@ test('batch view lists one centre, and only staff can use it', async () => {
 
   const everyone = await (await get('/eligibility', 1)).json();
   assert.equal(everyone.length, 12);
+
+  // An instructor gets only their own centre, even when asking for everyone or another centre.
+  for (const path of ['/eligibility', '/eligibility?centreId=2']) {
+    const mine = await (await get(path, 2)).json();
+    assert.equal(mine.length, 8);
+    assert.ok(mine.every((r) => r.centreName === 'ASK Headquarters Dojo'));
+  }
+  assert.deepEqual((await (await get('/centres', 2)).json()).map((c) => c.id), [1]);
 
   assert.equal((await get('/eligibility', 4)).status, 403);
   assert.equal((await get('/eligibility?centreId=x', 1)).status, 400);

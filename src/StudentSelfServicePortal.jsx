@@ -1,50 +1,45 @@
 import { useEffect, useState } from 'react';
-import dojos from '../data/dojos.json';
+import { STATUS_LABEL, api } from './auth.jsx';
 
-export default function StudentSelfServicePortal({ user, onProfileUpdated }) {
+// dojoNames: the dojos a member may choose (open and not members-only), the same list the
+// Profile tab uses. The API identifies the Principal Dojo by name, not by centre id.
+export default function StudentSelfServicePortal({ user, dojoNames = [], onProfileUpdated }) {
   const [eligibility, setEligibility] = useState(null);
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
-  const [centreId, setCentreId] = useState(user?.centre_id || '');
+  const [dojo, setDojo] = useState(user?.dojo || '');
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState({ tone: '', text: '' });
 
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`/api/students/${user.id}/eligibility`, { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => setEligibility(json))
-      .catch(() => {});
+    api(`/students/${user.id}/eligibility`).then(({ ok, data }) => setEligibility(ok ? data : null));
   }, [user?.id]);
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setMessage('');
+    setMessage({ tone: '', text: '' });
 
-    try {
-      const res = await fetch('/api/me', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name, phone, centre_id: centreId }),
-      });
-
-      const updated = await res.json();
-      if (!res.ok) throw new Error(updated.error || 'Update failed');
-
-      setMessage('Profile updated successfully.');
-      if (onProfileUpdated) onProfileUpdated(updated);
-    } catch (err) {
-      setMessage(err.message);
-    } finally {
-      setSaving(false);
+    const { ok, data } = await api('/me', { method: 'PATCH', body: { name, phone, dojo } });
+    setSaving(false);
+    if (ok) {
+      setMessage({ tone: 'ok', text: 'Profile updated successfully.' });
+      if (onProfileUpdated) onProfileUpdated(data.user);
+      return;
     }
+    // Validation errors come back as { errors: { field: message } }; other failures as { error }.
+    const text = data.errors ? Object.values(data.errors).join(' ') : (data.error || 'Update failed');
+    setMessage({ tone: 'error', text });
   };
 
-  const attended = eligibility?.sessionsAttended ?? 13;
-  const required = eligibility?.sessionsRequired ?? 14;
-  const pct = Math.min(100, Math.round((attended / required) * 100));
+  // Sessions since the last grading, from the eligibility engine's checks. Null when there is
+  // no rule to measure against (no rank yet, or the highest rank).
+  const sessions = eligibility?.checks?.find((c) => c.rule.startsWith('Sessions')) ?? null;
+  const attended = sessions?.actual ?? 0;
+  const required = sessions?.required ?? 0;
+  const pct = required ? Math.min(100, Math.round((attended / required) * 100)) : 0;
+  const isActive = user?.status === 'active';
 
   return (
     <section style={{ marginTop: '1.5rem' }}>
@@ -79,7 +74,7 @@ export default function StudentSelfServicePortal({ user, onProfileUpdated }) {
           <div>
             <span style={{ fontSize: '0.8rem', color: '#6B7280' }}>CURRENT RANK</span>
             <h3 style={{ margin: '0.2rem 0', color: '#1A1A1A' }}>
-              {user?.belt_rank || 'White Belt (6th Kyu)'}
+              {user?.rank || 'Ungraded'}
             </h3>
           </div>
           <div>
@@ -87,7 +82,7 @@ export default function StudentSelfServicePortal({ user, onProfileUpdated }) {
             <div style={{ marginTop: '0.25rem' }}>
               <span
                 style={{
-                  backgroundColor: user?.fee_paid ? '#1D4ED8' : '#C8102E',
+                  backgroundColor: isActive ? '#1D4ED8' : '#C8102E',
                   color: '#FFFFFF',
                   padding: '0.25rem 0.65rem',
                   borderRadius: '999px',
@@ -95,16 +90,25 @@ export default function StudentSelfServicePortal({ user, onProfileUpdated }) {
                   fontWeight: 600,
                 }}
               >
-                {user?.fee_paid ? 'Active Member' : 'Pending $60 Registration Fee'}
+                {isActive ? 'Active Member'
+                  : user?.status === 'pending_payment' ? 'Pending $60 Registration Fee'
+                    : STATUS_LABEL[user?.status] ?? 'Unknown'}
               </span>
             </div>
           </div>
         </div>
 
         {/* Royal Blue Grading Progress Bar */}
+        {!eligibility ? (
+          <p style={{ marginTop: '1.25rem', fontSize: '0.85rem', color: '#6B7280' }}>Loading your grading progress&hellip;</p>
+        ) : !sessions ? (
+          <p style={{ marginTop: '1.25rem', fontSize: '0.85rem', color: '#6B7280' }}>
+            {eligibility.reason ?? 'There is no grading progress to show yet.'}
+          </p>
+        ) : (
         <div style={{ marginTop: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
-            <strong>Next Grading Attendance Requirement</strong>
+            <strong>Sessions towards {eligibility.nextRank}</strong>
             <span>
               {attended} / {required} sessions ({pct}%)
             </span>
@@ -128,6 +132,7 @@ export default function StudentSelfServicePortal({ user, onProfileUpdated }) {
             />
           </div>
         </div>
+        )}
       </div>
 
       {/* Edit Profile Form (PATCH /api/me) */}
@@ -166,14 +171,13 @@ export default function StudentSelfServicePortal({ user, onProfileUpdated }) {
 
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem' }}>
             Principal Dojo
-            <select value={centreId} onChange={(e) => setCentreId(e.target.value)} style={inputStyle}>
-              <option value="">-- Select Principal Dojo --</option>
-              {Array.isArray(dojos) &&
-                dojos.map((d) => (
-                  <option key={d.id || d.name} value={d.id || d.name}>
-                    {d.name}
-                  </option>
-                ))}
+            <select value={dojo} onChange={(e) => setDojo(e.target.value)} style={inputStyle}>
+              {!dojoNames.includes(dojo) && <option value={dojo}>{dojo || '-- Select Principal Dojo --'}</option>}
+              {dojoNames.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -194,9 +198,9 @@ export default function StudentSelfServicePortal({ user, onProfileUpdated }) {
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
 
-          {message && (
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#1D4ED8', fontWeight: 600 }}>
-              {message}
+          {message.text && (
+            <p role="status" style={{ margin: 0, fontSize: '0.85rem', color: message.tone === 'error' ? '#C8102E' : '#1D4ED8', fontWeight: 600 }}>
+              {message.text}
             </p>
           )}
         </div>

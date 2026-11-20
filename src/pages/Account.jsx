@@ -287,7 +287,7 @@ export default function Account() {
       {tab === 'students' && <MyStudentsTab />}
       {tab === 'grading' && <GradingTab user={user} />}
       {tab === 'dashboard' && <InstructorDashboard />}
-      {tab === 'portal' && <StudentSelfServicePortal user={user} onProfileUpdated={(updated) => setUser(updated)} />}
+      {tab === 'portal' && <StudentSelfServicePortal user={user} dojoNames={dojoNames} onProfileUpdated={(updated) => setUser(updated)} />}
     </PageShell>
   );
 }

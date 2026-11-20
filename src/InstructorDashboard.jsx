@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
-import { api } from './auth.jsx';
+import { api, useAuth } from './auth.jsx';
+
+// The eligibility engine (server/eligibility.js) returns
+//   { studentId, currentRank, nextRank, eligible, reason, checks: [{ rule, required, actual, met }] }
+// The sessions check is the one whose rule starts with "Sessions".
+const sessionsCheck = (result) => result?.checks?.find((c) => c.rule.startsWith('Sessions')) ?? null;
 
 export default function InstructorDashboard() {
+  const { user } = useAuth();
   const [state, setState] = useState({ loading: true, error: '', dojo: '', students: [] });
-  const [filter, setFilter] = useState('ALL'); // 'ALL' | 'READY' | 'DECLINING'
+  const [filter, setFilter] = useState('ALL'); // 'ALL' | 'READY' | 'BEHIND'
 
   useEffect(() => {
     async function loadDashboard() {
-      // 1. Fetch active members at this instructor's dojo (existing FP-15 endpoint)
+      // 1. Active members at this instructor's dojo (FP-15 endpoint)
       const membersRes = await api('/instructor/members');
       if (!membersRes.ok) {
         setState({
@@ -19,30 +25,34 @@ export default function InstructorDashboard() {
         return;
       }
 
-      // 2. Fetch grading eligibility data (existing FP-10 endpoint)
-      const eligRes = await api('/eligibility');
-      const eligList = Array.isArray(eligRes.data)
-        ? eligRes.data
-        : eligRes.data?.students || eligRes.data?.results || [];
-
-      const eligById = new Map(eligList.map((item) => [item.student_id ?? item.id, item]));
+      // 2. Grading eligibility (FP-10), for this instructor's centre only
+      const eligPath = user?.centre_id ? `/eligibility?centreId=${user.centre_id}` : '/eligibility';
+      const eligRes = await api(eligPath);
+      if (!eligRes.ok) {
+        setState({ loading: false, error: eligRes.data?.error || 'Unable to load grading progress', dojo: '', students: [] });
+        return;
+      }
+      const eligById = new Map((eligRes.data ?? []).map((item) => [item.studentId, item]));
 
       const rawMembers = membersRes.data?.members || [];
       const enriched = rawMembers.map((m) => {
-        const elig = eligById.get(m.id) || {};
-        const attended = Number(elig.sessions_attended ?? elig.sessionsAttended ?? elig.attended ?? 0);
-        const required = Number(elig.sessions_required ?? elig.sessionsRequired ?? elig.required ?? 14);
-        const attendancePct = required > 0 ? Math.min(100, Math.round((attended / required) * 100)) : 0;
-        const isGradingReady = Boolean(elig.eligible ?? elig.isEligible ?? attended >= required);
-        const isDeclining = attendancePct < 50;
+        const elig = eligById.get(m.id);
+        const check = sessionsCheck(elig);
+        const attended = check?.actual ?? 0;
+        const required = check?.required ?? null;
+        // Progress towards the next grading's session requirement (not an attendance rate).
+        const progressPct = required ? Math.min(100, Math.round((attended / required) * 100)) : 0;
+        const isGradingReady = Boolean(elig?.eligible);
+        const isBehind = Boolean(required) && !isGradingReady && progressPct < 50;
 
         return {
           ...m,
           sessionsAttended: attended,
           sessionsRequired: required,
-          attendancePct,
+          progressPct,
           isGradingReady,
-          isDeclining,
+          isBehind,
+          note: required ? '' : (elig?.reason ?? 'No grading progress yet'),
         };
       });
 
@@ -55,7 +65,7 @@ export default function InstructorDashboard() {
     }
 
     loadDashboard();
-  }, []);
+  }, [user?.centre_id]);
 
   if (state.loading) return <p style={{ padding: '1rem' }}>Loading progression dashboard&hellip;</p>;
   if (state.error) return <p style={{ padding: '1rem', color: '#C8102E' }}>{state.error}</p>;
@@ -63,14 +73,15 @@ export default function InstructorDashboard() {
   const { dojo, students } = state;
   const totalStudents = students.length;
   const gradingReadyCount = students.filter((s) => s.isGradingReady).length;
-  const decliningCount = students.filter((s) => s.isDeclining).length;
-  const avgAttendancePct = totalStudents
-    ? Math.round(students.reduce((sum, s) => sum + s.attendancePct, 0) / totalStudents)
+  const behindCount = students.filter((s) => s.isBehind).length;
+  const tracked = students.filter((s) => s.sessionsRequired);
+  const avgProgressPct = tracked.length
+    ? Math.round(tracked.reduce((sum, s) => sum + s.progressPct, 0) / tracked.length)
     : 0;
 
   const filteredStudents = students.filter((s) => {
     if (filter === 'READY') return s.isGradingReady;
-    if (filter === 'DECLINING') return s.isDeclining;
+    if (filter === 'BEHIND') return s.isBehind;
     return true;
   });
 
@@ -90,7 +101,7 @@ export default function InstructorDashboard() {
           Instructor Progression &amp; Attendance Dashboard {dojo ? `— ${dojo}` : ''}
         </h2>
         <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', opacity: 0.85 }}>
-          Real-time student retention alerts (&lt;50% attendance) and grading readiness overview
+          Grading readiness and progress towards each student&rsquo;s next grading
         </p>
       </div>
 
@@ -114,13 +125,13 @@ export default function InstructorDashboard() {
         </div>
 
         <div style={cardStyle('#C8102E')}>
-          <span style={labelStyle}>Declining (&lt;50%)</span>
-          <strong style={{ fontSize: '1.75rem', color: '#C8102E' }}>{decliningCount}</strong>
+          <span style={labelStyle}>Under 50% to next grading</span>
+          <strong style={{ fontSize: '1.75rem', color: '#C8102E' }}>{behindCount}</strong>
         </div>
 
         <div style={cardStyle('#1A1A1A')}>
-          <span style={labelStyle}>Avg Attendance</span>
-          <strong style={{ fontSize: '1.75rem', color: '#1A1A1A' }}>{avgAttendancePct}%</strong>
+          <span style={labelStyle}>Avg progress to next grading</span>
+          <strong style={{ fontSize: '1.75rem', color: '#1A1A1A' }}>{avgProgressPct}%</strong>
         </div>
       </div>
 
@@ -133,10 +144,10 @@ export default function InstructorDashboard() {
           Grading Ready ({gradingReadyCount})
         </button>
         <button
-          onClick={() => setFilter('DECLINING')}
-          style={filterBtnStyle(filter === 'DECLINING', '#C8102E')}
+          onClick={() => setFilter('BEHIND')}
+          style={filterBtnStyle(filter === 'BEHIND', '#C8102E')}
         >
-          Declining Flag (&lt;50%) ({decliningCount})
+          Under 50% ({behindCount})
         </button>
       </div>
 
@@ -150,8 +161,8 @@ export default function InstructorDashboard() {
               <tr style={{ backgroundColor: '#1A1A1A', color: '#FFFFFF', textAlign: 'left' }}>
                 <th style={thStyle}>Student Name</th>
                 <th style={thStyle}>Current Rank</th>
-                <th style={thStyle}>Sessions</th>
-                <th style={thStyle}>Attendance Progress</th>
+                <th style={thStyle}>Sessions since last grading</th>
+                <th style={thStyle}>Progress to next grading</th>
                 <th style={thStyle}>Status Flag</th>
               </tr>
             </thead>
@@ -164,9 +175,12 @@ export default function InstructorDashboard() {
                   </td>
                   <td style={tdStyle}>{s.rank}</td>
                   <td style={tdStyle}>
-                    {s.sessionsAttended} / {s.sessionsRequired}
+                    {s.sessionsRequired ? `${s.sessionsAttended} / ${s.sessionsRequired}` : '—'}
                   </td>
                   <td style={tdStyle}>
+                    {!s.sessionsRequired ? (
+                      <span style={{ fontSize: '0.8rem', color: '#6B7280' }}>{s.note}</span>
+                    ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <div
                         style={{
@@ -179,20 +193,21 @@ export default function InstructorDashboard() {
                       >
                         <div
                           style={{
-                            width: `${s.attendancePct}%`,
+                            width: `${s.progressPct}%`,
                             height: '100%',
-                            backgroundColor: s.isDeclining ? '#C8102E' : '#1D4ED8',
+                            backgroundColor: s.isBehind ? '#C8102E' : '#1D4ED8',
                           }}
                         />
                       </div>
-                      <span>{s.attendancePct}%</span>
+                      <span>{s.progressPct}%</span>
                     </div>
+                    )}
                   </td>
                   <td style={tdStyle}>
-                    {s.isDeclining ? (
-                      <span style={badgeStyle('#C8102E')}>Declining Attendance</span>
-                    ) : s.isGradingReady ? (
+                    {s.isGradingReady ? (
                       <span style={badgeStyle('#1D4ED8')}>Grading Ready</span>
+                    ) : s.isBehind ? (
+                      <span style={badgeStyle('#C8102E')}>Under 50%</span>
                     ) : (
                       <span style={badgeStyle('#1A1A1A')}>On Track</span>
                     )}

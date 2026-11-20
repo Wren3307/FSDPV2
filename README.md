@@ -164,7 +164,8 @@ Accounts, attendance and enquiries are saved in `storage/enquiries.db`, which is
 | `GET` | `/api/instructor/members` | Instructor | Active members at the instructor's dojo | `FP-15` |
 | `GET` | `/api/instructor/classes` | Staff | The day's classes at the instructor's centre | `FP-7` |
 | `PUT` | `/api/sessions/:id/attendance` | Staff | Mark attendance for a session. The reply lists students the save made eligible | `FP-7`, `FP-11` |
-| `GET` | `/api/eligibility`, `/api/students/:id/eligibility` | Staff (students: their own) | Grading eligibility | `FP-10` |
+| `GET` | `/api/instructor/attendance-rates` | Staff | Each active member's attendance rate over the last 8 weeks; under 50% is flagged as declining. Instructors get their own dojo; admins can pass `?centreId=` | `FP-15` |
+| `GET` | `/api/eligibility`, `/api/students/:id/eligibility` | Staff (instructors: their own dojo; students: their own) | Grading eligibility | `FP-10` |
 | `GET` | `/api/me/notifications` | Logged in | The user's own notifications, newest first | `FP-11` |
 | `POST` | `/api/me/notifications/read` | Logged in | Mark the user's own notifications as read | `FP-11` |
 | `GET` | `/api/admin/users`, `/api/admin/enquiries` | Admin | Accounts and enquiries | — |

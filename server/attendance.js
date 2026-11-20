@@ -2,7 +2,7 @@
 // Ported from the first attempt (Postgres) to node:sqlite. Every route needs an instructor or admin.
 import express from 'express';
 import { loadUser, requireRole } from './auth.js';
-import { daysBetween, isDate, isoWeekday, today } from './dates.js';
+import { addDays, daysBetween, isDate, isoWeekday, today } from './dates.js';
 import { createNotifier } from './notifications.js';
 
 // The only statuses the attendance table accepts.
@@ -217,6 +217,51 @@ export function createAttendanceRouter(connection) {
         name: result.studentName,
         nextRank: result.nextRank,
       })),
+    });
+  });
+
+  // FP-15 retention: each active student's attendance rate over the last eight weeks.
+  //   expected = sessions of their enrolled classes where attendance was taken, from the day they
+  //              enrolled, minus any marked "excused"
+  //   attended = those marked present or late
+  // A student with an unmarked row in a session that was marked counts as having missed it.
+  // `declining` is true when the rate is under DECLINING_BELOW. The rate is null when nothing
+  // was expected of them in the window (e.g. they joined this week).
+  const RATE_WINDOW_DAYS = 56;
+  const DECLINING_BELOW = 0.5;
+  const ratesAt = connection.prepare(`
+    SELECT e.student_id AS studentId,
+           SUM(CASE WHEN a.status IN ('present', 'late') THEN 1 ELSE 0 END) AS attended,
+           SUM(CASE WHEN a.status = 'excused' THEN 0 ELSE 1 END)          AS expected
+      FROM enrolments e
+      JOIN users u    ON u.id = e.student_id AND u.role = 'student' AND u.membership_status = 'active'
+      JOIN sessions s ON s.class_id = e.class_id AND s.type = 'regular'
+                     AND s.date >= :from AND s.date <= :to AND s.date >= e.enrolled_on
+                     AND EXISTS (SELECT 1 FROM attendance x WHERE x.session_id = s.id)
+      LEFT JOIN attendance a ON a.session_id = s.id AND a.student_id = e.student_id
+     WHERE (:centreId IS NULL OR u.centre_id = :centreId)
+     GROUP BY e.student_id
+  `);
+
+  router.get('/instructor/attendance-rates', ...staffOnly, (req, res) => {
+    let centreId = null;
+    if (req.user.role === 'instructor') {
+      if (!req.user.centre_id) return res.json({ windowDays: RATE_WINDOW_DAYS, decliningBelow: DECLINING_BELOW, students: [] });
+      centreId = req.user.centre_id;
+    } else if (req.query.centreId !== undefined && req.query.centreId !== '') {
+      centreId = Number(req.query.centreId);
+      if (!Number.isInteger(centreId)) return res.status(400).json({ error: 'centreId must be a number' });
+    }
+
+    const to = today();
+    const rows = ratesAt.all({ from: addDays(to, -RATE_WINDOW_DAYS), to, centreId });
+    res.json({
+      windowDays: RATE_WINDOW_DAYS,
+      decliningBelow: DECLINING_BELOW,
+      students: rows.map(({ studentId, attended, expected }) => {
+        const rate = expected > 0 ? attended / expected : null;
+        return { studentId, attended, expected, rate, declining: rate !== null && rate < DECLINING_BELOW };
+      }),
     });
   });
 
